@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}이미지 생성 - ImageAuto{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1><i class="fas fa-image"></i> AI 이미지 생성</h1>
+        <p>텍스트 설명만으로 원하는 이미지를 생성하세요</p>
+    </div>
+</div>
+
+<section class="image-generation">
+    <div class="container">
+        <div class="generation-interface">
+            <!-- 프롬프트 입력 -->
+            <div class="prompt-section">
+                <div class="prompt-input-area">
+                    <h3><i class="fas fa-pen"></i> 이미지 설명</h3>
+                    <textarea 
+                        id="promptInput" 
+                        placeholder="생성하고 싶은 이미지를 자세히 설명해주세요...&#10;예: 해질녘 바다 위에 떠있는 요트, 파스텔 톤, 수채화 스타일"
+                        rows="4"
+                    ></textarea>
+                    
+                    <div class="prompt-suggestions">
+                        <h4>프롬프트 예시</h4>
+                        <div class="suggestion-tags">
+                            <button class="suggestion-tag">귀여운 고양이, 만화 스타일</button>
+                            <button class="suggestion-tag">미래 도시, 사이버펑크</button>
+                            <button class="suggestion-tag">환상적인 숲, 요정들</button>
+                            <button class="suggestion-tag">맛있는 음식, 사진 같은</button>
+                            <button class="suggestion-tag">우주 풍경, 별들</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 생성 옵션 -->
+                <div class="generation-options">
+                    <h3><i class="fas fa-sliders-h"></i> 생성 옵션</h3>
+                    
+                    <div class="option-grid">
+                        <div class="option-group">
+                            <label>이미지 크기</label>
+                            <select id="imageSize">
+                                <option value="512x512">512 × 512 (정사각형)</option>
+                                <option value="512x768">512 × 768 (세로)</option>
+                                <option value="768x512">768 × 512 (가로)</option>
+                                <option value="1024x1024">1024 × 1024 (고해상도)</option>
+                            </select>
+                        </div>
+
+                        <div class="option-group">
+                            <label>아트 스타일</label>
+                            <select id="artStyle">
+                                <option value="realistic">사실적</option>
+                                <option value="anime">애니메이션</option>
+                                <option value="digital-art">디지털 아트</option>
+                                <option value="oil-painting">유화</option>
+                                <option value="watercolor">수채화</option>
+                                <option value="sketch">스케치</option>
+                            </select>
+                        </div>
+
+                        <div class="option-group">
+                            <label>품질 수준</label>
+                            <select id="qualityLevel">
+                                <option value="draft">빠른 생성</option>
+                                <option value="standard" selected>표준</option>
+                                <option value="high">고품질</option>
+                                <option value="ultra">최고품질</option>
+                            </select>
+                        </div>
+
+                        <div class="option-group">
+                            <label>생성 개수</label>
+                            <select id="imageCount">
+                                <option value="1">1개</option>
+                                <option value="2">2개</option>
+                                <option value="4" selected>4개</option>
+                                <option value="8">8개</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-large" id="generateBtn">
+                        <i class="fas fa-magic"></i>
+                        이미지 생성하기
+                    </button>
+                </div>
+            </div>
+
+            <!-- 생성 결과 -->
+            <div class="generation-results">
+                <div class="results-header">
+                    <h3><i class="fas fa-images"></i> 생성 결과</h3>
+                    <div class="results-actions">
+                        <button class="btn btn-secondary" id="downloadAll">
+                            <i class="fas fa-download"></i> 전체 다운로드
+                        </button>
+                    </div>
+                </div>
+
+                <div class="results-grid" id="resultsGrid">
+                    <!-- 생성 대기 상태 -->
+                    <div class="generation-placeholder">
+                        <i class="fas fa-paint-brush"></i>
+                        <h4>이미지를 생성해보세요!</h4>
+                        <p>왼쪽에서 설명을 입력하고 생성하기 버튼을 클릭하세요</p>
+                    </div>
+                </div>
+
+                <!-- 진행률 표시 -->
+                <div class="generation-progress" id="generationProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-text" id="progressText">이미지 생성 중...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 생성 히스토리 -->
+        <div class="generation-history">
+            <h3><i class="fas fa-history"></i> 최근 생성한 이미지</h3>
+            <div class="history-grid">
+                <div class="history-item">
+                    <div class="history-image">
+                        <div class="placeholder-image">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    </div>
+                    <div class="history-info">
+                        <p class="history-prompt">"귀여운 고양이, 만화 스타일"</p>
+                        <span class="history-time">5분 전</span>
+                    </div>
+                </div>
+
+                <div class="history-item">
+                    <div class="history-image">
+                        <div class="placeholder-image">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    </div>
+                    <div class="history-info">
+                        <p class="history-prompt">"미래 도시, 사이버펑크"</p>
+                        <span class="history-time">1시간 전</span>
+                    </div>
+                </div>
+
+                <div class="history-item">
+                    <div class="history-image">
+                        <div class="placeholder-image">
+                            <i class="fas fa-image"></i>
+                        </div>
+                    </div>
+                    <div class="history-info">
+                        <p class="history-prompt">"환상적인 숲, 요정들"</p>
+                        <span class="history-time">2시간 전</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/image-generation.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ImageAuto - AI 콘텐츠 제작 플랫폼{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="{{ url_for('main.index') }}">
+                    <i class="fas fa-magic"></i>
+                    <span>ImageAuto</span>
+                </a>
+            </div>
+            
+            <div class="nav-menu" id="navMenu">
+                <a href="{{ url_for('main.index') }}" class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    <span>홈</span>
+                </a>
+                <a href="{{ url_for('main.workflow') }}" class="nav-link {% if request.endpoint == 'main.workflow' %}active{% endif %}">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>워크플로우</span>
+                </a>
+                <a href="{{ url_for('main.image_generation') }}" class="nav-link {% if request.endpoint == 'main.image_generation' %}active{% endif %}">
+                    <i class="fas fa-image"></i>
+                    <span>이미지 생성</span>
+                </a>
+                <a href="{{ url_for('main.video_generation') }}" class="nav-link {% if request.endpoint == 'main.video_generation' %}active{% endif %}">
+                    <i class="fas fa-video"></i>
+                    <span>동영상 생성</span>
+                </a>
+                <a href="{{ url_for('main.video_editor') }}" class="nav-link {% if request.endpoint == 'main.video_editor' %}active{% endif %}">
+                    <i class="fas fa-cut"></i>
+                    <span>동영상 편집</span>
+                </a>
+            </div>
+            
+            <div class="nav-toggle" id="navToggle">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3><i class="fas fa-magic"></i> ImageAuto</h3>
+                    <p>AI 기반 콘텐츠 제작을 위한 올인원 플랫폼</p>
+                </div>
+                <div class="footer-section">
+                    <h4>서비스</h4>
+                    <ul>
+                        <li><a href="{{ url_for('main.workflow') }}">워크플로우</a></li>
+                        <li><a href="{{ url_for('main.image_generation') }}">이미지 생성</a></li>
+                        <li><a href="{{ url_for('main.video_generation') }}">동영상 생성</a></li>
+                        <li><a href="{{ url_for('main.video_editor') }}">동영상 편집</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>문의</h4>
+                    <ul>
+                        <li><i class="fas fa-envelope"></i> contact@imageauto.com</li>
+                        <li><i class="fas fa-phone"></i> +82-2-1234-5678</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 ImageAuto. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

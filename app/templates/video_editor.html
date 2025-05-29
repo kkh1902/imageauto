@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}동영상 편집 - ImageAuto{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1><i class="fas fa-cut"></i> 동영상 편집기</h1>
+        <p>전문적인 편집 도구로 완성도 높은 동영상을 만드세요</p>
+    </div>
+</div>
+
+<section class="video-editor">
+    <div class="container-fluid">
+        <div class="editor-interface">
+            <!-- 상단 툴바 -->
+            <div class="editor-toolbar">
+                <div class="toolbar-section">
+                    <button class="btn btn-primary" id="importBtn">
+                        <i class="fas fa-upload"></i> 가져오기
+                    </button>
+                    <button class="btn btn-secondary" id="newProjectBtn">
+                        <i class="fas fa-plus"></i> 새 프로젝트
+                    </button>
+                </div>
+                
+                <div class="toolbar-section">
+                    <button class="tool-btn" data-tool="select" title="선택">
+                        <i class="fas fa-mouse-pointer"></i>
+                    </button>
+                    <button class="tool-btn" data-tool="cut" title="자르기">
+                        <i class="fas fa-cut"></i>
+                    </button>
+                    <button class="tool-btn" data-tool="text" title="텍스트">
+                        <i class="fas fa-font"></i>
+                    </button>
+                    <button class="tool-btn" data-tool="transition" title="전환효과">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                </div>
+                
+                <div class="toolbar-section">
+                    <button class="btn btn-secondary" id="undoBtn">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="btn btn-secondary" id="redoBtn">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                </div>
+                
+                <div class="toolbar-section">
+                    <button class="btn btn-success" id="exportBtn">
+                        <i class="fas fa-download"></i> 내보내기
+                    </button>
+                </div>
+            </div>
+
+            <!-- 메인 편집 영역 -->
+            <div class="editor-main">
+                <!-- 미디어 라이브러리 -->
+                <div class="media-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-folder"></i> 미디어</h3>
+                    </div>
+                    <div class="media-tabs">
+                        <button class="media-tab active" data-tab="files">파일</button>
+                        <button class="media-tab" data-tab="effects">효과</button>
+                        <button class="media-tab" data-tab="audio">오디오</button>
+                        <button class="media-tab" data-tab="text">텍스트</button>
+                    </div>
+                    
+                    <div class="media-content">
+                        <div class="media-tab-content active" id="files-content">
+                            <div class="file-upload-area">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>동영상, 이미지, 오디오 파일을<br>드래그하여 업로드하세요</p>
+                                <button class="btn btn-sm btn-primary">파일 선택</button>
+                            </div>
+                            <div class="media-list" id="mediaList">
+                                <!-- 업로드된 미디어 파일들이 여기 표시 -->
+                            </div>
+                        </div>
+                        
+                        <div class="media-tab-content" id="effects-content">
+                            <div class="effects-grid">
+                                <div class="effect-item">
+                                    <div class="effect-preview">
+                                        <i class="fas fa-adjust"></i>
+                                    </div>
+                                    <span>밝기/대비</span>
+                                </div>
+                                <div class="effect-item">
+                                    <div class="effect-preview">
+                                        <i class="fas fa-palette"></i>
+                                    </div>
+                                    <span>색상 조정</span>
+                                </div>
+                                <div class="effect-item">
+                                    <div class="effect-preview">
+                                        <i class="fas fa-blur"></i>
+                                    </div>
+                                    <span>블러</span>
+                                </div>
+                                <div class="effect-item">
+                                    <div class="effect-preview">
+                                        <i class="fas fa-filter"></i>
+                                    </div>
+                                    <span>필터</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="media-tab-content" id="audio-content">
+                            <div class="audio-library">
+                                <div class="audio-categories">
+                                    <button class="category-btn active">배경음악</button>
+                                    <button class="category-btn">효과음</button>
+                                    <button class="category-btn">음성</button>
+                                </div>
+                                <div class="audio-list">
+                                    <div class="audio-item">
+                                        <i class="fas fa-music"></i>
+                                        <span>Corporate Upbeat</span>
+                                        <button class="btn btn-sm"><i class="fas fa-play"></i></button>
+                                    </div>
+                                    <div class="audio-item">
+                                        <i class="fas fa-music"></i>
+                                        <span>Smooth Jazz</span>
+                                        <button class="btn btn-sm"><i class="fas fa-play"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="media-tab-content" id="text-content">
+                            <div class="text-templates">
+                                <div class="text-template">
+                                    <div class="template-preview">제목</div>
+                                    <span>기본 제목</span>
+                                </div>
+                                <div class="text-template">
+                                    <div class="template-preview">부제목</div>
+                                    <span>부제목</span>
+                                </div>
+                                <div class="text-template">
+                                    <div class="template-preview">설명</div>
+                                    <span>본문 텍스트</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 미리보기 영역 -->
+                <div class="preview-panel">
+                    <div class="preview-container">
+                        <div class="preview-screen">
+                            <div class="preview-placeholder">
+                                <i class="fas fa-play-circle"></i>
+                                <p>동영상을 가져와서 편집을 시작하세요</p>
+                            </div>
+                        </div>
+                        
+                        <div class="preview-controls">
+                            <button class="control-btn" id="playBtn">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="control-btn" id="pauseBtn" style="display: none;">
+                                <i class="fas fa-pause"></i>
+                            </button>
+                            <button class="control-btn" id="stopBtn">
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            
+                            <div class="time-display">
+                                <span id="currentTime">00:00</span>
+                                <span>/</span>
+                                <span id="totalTime">00:00</span>
+                            </div>
+                            
+                            <div class="volume-control">
+                                <i class="fas fa-volume-up"></i>
+                                <input type="range" id="volumeSlider" min="0" max="100" value="50">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 속성 패널 -->
+                <div class="properties-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-cog"></i> 속성</h3>
+                    </div>
+                    <div class="properties-content" id="propertiesContent">
+                        <div class="no-selection">
+                            <i class="fas fa-info-circle"></i>
+                            <p>편집할 요소를 선택하세요</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 타임라인 -->
+            <div class="timeline-panel">
+                <div class="timeline-header">
+                    <h3><i class="fas fa-film"></i> 타임라인</h3>
+                    <div class="timeline-controls">
+                        <button class="btn btn-sm btn-secondary" id="zoomInBtn">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary" id="zoomOutBtn">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary" id="fitTimelineBtn">
+                            <i class="fas fa-expand-arrows-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline-ruler">
+                        <div class="ruler-marks"></div>
+                    </div>
+                    
+                    <div class="timeline-tracks">
+                        <div class="track">
+                            <div class="track-header">
+                                <span>비디오 1</span>
+                                <div class="track-controls">
+                                    <button class="track-btn"><i class="fas fa-eye"></i></button>
+                                    <button class="track-btn"><i class="fas fa-lock"></i></button>
+                                </div>
+                            </div>
+                            <div class="track-content" data-track="video1"></div>
+                        </div>
+                        
+                        <div class="track">
+                            <div class="track-header">
+                                <span>오디오 1</span>
+                                <div class="track-controls">
+                                    <button class="track-btn"><i class="fas fa-volume-up"></i></button>
+                                    <button class="track-btn"><i class="fas fa-lock"></i></button>
+                                </div>
+                            </div>
+                            <div class="track-content" data-track="audio1"></div>
+                        </div>
+                        
+                        <div class="track">
+                            <div class="track-header">
+                                <span>텍스트</span>
+                                <div class="track-controls">
+                                    <button class="track-btn"><i class="fas fa-eye"></i></button>
+                                    <button class="track-btn"><i class="fas fa-lock"></i></button>
+                                </div>
+                            </div>
+                            <div class="track-content" data-track="text"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="playhead" id="playhead"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/video-editor.js') }}"></script>
+{% endblock %}

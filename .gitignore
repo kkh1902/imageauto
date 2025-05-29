@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Environment Variables
+.env
+
+# Browser Data (contains personal information)
+browser_data/
+
+# Uploads (user generated content)
+uploads/images/*
+uploads/videos/*
+uploads/edited/*
+!uploads/images/.gitkeep
+!uploads/videos/.gitkeep
+!uploads/edited/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Temporary files
+temp_*
+debug_*
+test_*
+*_backup.py
+*_old.py
+analyze_imagefx.py
+app_backup.py
+simple_test.py
+imagefx_page_debug.html
+
+# OS
+.DS_Store
+Thumbs.db
