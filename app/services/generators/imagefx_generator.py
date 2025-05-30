@@ -43,6 +43,7 @@ class ImageFXGenerator:
                     headless=headless_mode,
                     viewport={'width': 1920, 'height': 1080},
                     accept_downloads=True,
+                    downloads_path=self.download_dir,  # 다운로드 경로 명시적 설정
                     user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     args=[
                         '--disable-blink-features=AutomationControlled',
@@ -50,7 +51,8 @@ class ImageFXGenerator:
                         '--disable-setuid-sandbox',
                         '--disable-dev-shm-usage',
                         '--disable-web-security',
-                        '--disable-features=VizDisplayCompositor'
+                        '--disable-features=VizDisplayCompositor',
+                        f'--download-path={self.download_dir}',  # 추가 다운로드 경로 설정
                     ]
                 )
                 
@@ -877,14 +879,12 @@ class ImageFXGenerator:
                                             # 즉시 다운로드 시도
                                             logger.info(f"📥 정밀 다운로드 요소 클릭 시도...")
                                             
-                                            # 다운로드 Promise 설정
-                                            if not download_promise:
-                                                download_promise = page.wait_for_download(timeout=30000)
-                                                logger.info("다운로드 이벤트 리스너 설정")
-                                            
                                             # 스크롤 및 대기
                                             await element.scroll_into_view_if_needed()
                                             await page.wait_for_timeout(1000)
+                                            
+                                            # 다운로드 폴더의 기존 파일 목록 저장
+                                            existing_files = set(os.listdir(self.download_dir))
                                             
                                             # 3단계 클릭 시도
                                             precise_clicked = False
@@ -920,45 +920,100 @@ class ImageFXGenerator:
                                                     logger.debug(f"정밀 요소 포스 클릭 실패: {e}")
                                             
                                             if precise_clicked:
-                                                # 다운로드 대기
-                                                logger.info("📥 정밀 요소 다운로드 대기 중...")
+                                                # 파일 시스템 기반 다운로드 대기
+                                                logger.info("📥 파일 시스템 기반 다운로드 대기 중...")
                                                 
-                                                try:
-                                                    download = await download_promise
-                                                    logger.info("✅ 정밀 요소 다운로드 이벤트 감지!")
+                                                # 대기 시간을 60초로 늘리고 더 자세히 확인
+                                                for wait_seconds in range(60):  # 60초 대기
+                                                    await page.wait_for_timeout(1000)
                                                     
-                                                    # 파일 처리
-                                                    suggested_filename = download.suggested_filename
-                                                    logger.info(f"제안된 파일명: {suggested_filename}")
-                                                    
-                                                    if not suggested_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                                                        suggested_filename += '.jpg'
-                                                    
-                                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                                                    name, ext = os.path.splitext(suggested_filename)
-                                                    filename = f"imagefx_{timestamp}_{name}{ext}"
-                                                    filepath = os.path.join(self.download_dir, filename)
-                                                    
-                                                    await download.save_as(filepath)
-                                                    
-                                                    if os.path.exists(filepath):
-                                                        file_size = os.path.getsize(filepath)
-                                                        if file_size > 1000:
-                                                            logger.info(f"✅ 정밀 선택자로 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
-                                                            return {
-                                                                'status': 'success',
-                                                                'filename': filename,
-                                                                'filepath': filepath,
-                                                                'prompt': prompt,
-                                                                'aspect_ratio': aspect_ratio,
-                                                                'generator': 'imagefx',
-                                                                'file_size': file_size,
-                                                                'download_method': 'precise_selector_click'
-                                                            }
-                                                    
-                                                except Exception as download_error:
-                                                    logger.warning(f"정밀 요소 다운로드 대기 실패: {download_error}")
-                                                    download_promise = None
+                                                    # 새 파일 확인
+                                                    try:
+                                                        current_files = set(os.listdir(self.download_dir))
+                                                        new_files = current_files - existing_files
+                                                        
+                                                        # 다운로드 중인 파일(임시 파일) 포함 대기
+                                                        all_potential_files = []
+                                                        for f in current_files:
+                                                            filepath = os.path.join(self.download_dir, f)
+                                                            if (os.path.exists(filepath) and 
+                                                                f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.crdownload', '.tmp')) and
+                                                                f not in existing_files):
+                                                                all_potential_files.append(f)
+                                                        
+                                                        if wait_seconds % 5 == 0:  # 5초마다 로깅
+                                                            logger.info(f"🕐 대기 중... {wait_seconds}/60초 - 새 파일: {len(new_files)}개, 전체 파일: {len(current_files)}개")
+                                                            if all_potential_files:
+                                                                logger.info(f"   파일 후보: {all_potential_files}")
+                                                        
+                                                        if new_files:
+                                                            # 가장 최근 파일 찾기
+                                                            newest_file = None
+                                                            newest_time = 0
+                                                            
+                                                            for filename in new_files:
+                                                                filepath = os.path.join(self.download_dir, filename)
+                                                                if os.path.exists(filepath):
+                                                                    # 다운로드 중인 파일 제외
+                                                                    if filename.endswith('.crdownload') or filename.endswith('.tmp'):
+                                                                        logger.info(f"🔄 다운로드 중: {filename}")
+                                                                        continue
+                                                                        
+                                                                    file_time = os.path.getctime(filepath)
+                                                                    if file_time > newest_time:
+                                                                        newest_time = file_time
+                                                                        newest_file = filename
+                                                            
+                                                            if newest_file:
+                                                                filepath = os.path.join(self.download_dir, newest_file)
+                                                                file_size = os.path.getsize(filepath)
+                                                                
+                                                                logger.info(f"📁 새 파일 발견: {newest_file} ({file_size:,} bytes)")
+                                                                
+                                                                if file_size > 5000:  # 5KB 이상
+                                                                    # 파일 이름 정리
+                                                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                                                    name, ext = os.path.splitext(newest_file)
+                                                                    if not ext:
+                                                                        ext = '.jpg'
+                                                                    final_filename = f"imagefx_{timestamp}{ext}"
+                                                                    final_filepath = os.path.join(self.download_dir, final_filename)
+                                                                    
+                                                                    try:
+                                                                        if filepath != final_filepath:
+                                                                            os.rename(filepath, final_filepath)
+                                                                        
+                                                                        logger.info(f"✅ 정밀 선택자로 다운로드 성공! 파일 크기: {file_size:,} bytes")
+                                                                        return {
+                                                                            'status': 'success',
+                                                                            'filename': final_filename,
+                                                                            'filepath': final_filepath,
+                                                                            'prompt': prompt,
+                                                                            'aspect_ratio': aspect_ratio,
+                                                                            'generator': 'imagefx',
+                                                                            'file_size': file_size,
+                                                                            'download_method': 'filesystem_detection'
+                                                                        }
+                                                                    except Exception as rename_error:
+                                                                        logger.warning(f"파일 이름 변경 실패: {rename_error}")
+                                                                        # 원본 파일 그대로 반환
+                                                                        return {
+                                                                            'status': 'success',
+                                                                            'filename': newest_file,
+                                                                            'filepath': filepath,
+                                                                            'prompt': prompt,
+                                                                            'aspect_ratio': aspect_ratio,
+                                                                            'generator': 'imagefx',
+                                                                            'file_size': file_size,
+                                                                            'download_method': 'filesystem_detection'
+                                                                        }
+                                                                else:
+                                                                    logger.info(f"⚠️ 파일이 너무 작음, 계속 대기: {file_size} bytes")
+                                                                    
+                                                    except Exception as file_check_error:
+                                                        logger.debug(f"파일 확인 오류: {file_check_error}")
+                                                
+                                                logger.warning("📥 정밀 선택자 다운로드 대기 시간 초과 (60초)")
                                             
                                             download_found_precise = True
                                             break
@@ -980,22 +1035,25 @@ class ImageFXGenerator:
                             else:
                                 # 1. 모든 메뉴 아이템 찾기 (정밀 선택자 실패 시만 실행)
                                 logger.info("⚠️ 정밀 선택자 실패, 일반 스캔 시작...")
-                            logger.info(f"전체 메뉴 아이템 수: {len(all_menu_items)}")
-                            
-                            for idx, item in enumerate(all_menu_items[:15]):  # 최대 15개만 로깅
-                                try:
-                                    is_visible = await item.is_visible()
-                                    text_content = await item.inner_text()
-                                    html_content = await item.inner_html()
-                                    logger.info(f"  메뉴 아이템 {idx+1}: visible={is_visible}")
-                                    logger.info(f"    text: '{text_content.strip()}'")
-                                    logger.info(f"    html: {html_content[:200]}...")
-                                    
-                                    # 다운로드 관련 키워드 찾기
-                                    if "다운로드" in text_content or "download" in text_content.lower() or "download" in html_content.lower():
-                                        logger.info(f"    ⭐ 다운로드 관련 아이템 발견!")
-                                except Exception as e:
-                                    logger.debug(f"  메뉴 아이템 {idx+1} 정보 읽기 실패: {e}")
+                                
+                                # 모든 메뉴 아이템 찾기
+                                all_menu_items = await page.locator('[role="menuitem"]').all()
+                                logger.info(f"전체 메뉴 아이템 수: {len(all_menu_items)}")
+                                
+                                for idx, item in enumerate(all_menu_items[:15]):  # 최대 15개만 로깅
+                                    try:
+                                        is_visible = await item.is_visible()
+                                        text_content = await item.inner_text()
+                                        html_content = await item.inner_html()
+                                        logger.info(f"  메뉴 아이템 {idx+1}: visible={is_visible}")
+                                        logger.info(f"    text: '{text_content.strip()}'")
+                                        logger.info(f"    html: {html_content[:200]}...")
+                                        
+                                        # 다운로드 관련 키워드 찾기
+                                        if "다운로드" in text_content or "download" in text_content.lower() or "download" in html_content.lower():
+                                            logger.info(f"    ⭐ 다운로드 관련 아이템 발견!")
+                                    except Exception as e:
+                                        logger.debug(f"  메뉴 아이템 {idx+1} 정보 읽기 실패: {e}")
                             
                             # 2. 모든 클릭 가능한 요소 찾기
                             logger.info("\n🔍 모든 클릭 가능한 요소들:")
@@ -1039,8 +1097,12 @@ class ImageFXGenerator:
                                     try:
                                         # 다운로드 이벤트 리스너 설정
                                         if not download_promise:
-                                            download_promise = page.wait_for_download(timeout=30000)
-                                            logger.info("다운로드 이벤트 리스너 설정 완료")
+                                            try:
+                                                # 파일 시스템 기반 다운로드 감지 사용
+                                                existing_files = set(os.listdir(self.download_dir))
+                                                logger.info("파일 시스템 기반 다운로드 감지 설정 완료")
+                                            except Exception as e:
+                                                logger.warning(f"다운로드 감지 설정 오류: {e}")
                                         
                                         elem = candidate['element']
                                         
@@ -1086,41 +1148,74 @@ class ImageFXGenerator:
                                             logger.info("📥 다운로드 이벤트 대기 중...")
                                             
                                             try:
-                                                download = await download_promise
-                                                logger.info("✅ 다운로드 이벤트 감지됨!")
+                                                # 파일 시스템 기반 대기
+                                                for wait_seconds in range(30):  # 30초 대기
+                                                    await page.wait_for_timeout(1000)
+                                                    
+                                                    # 새 파일 확인
+                                                    current_files = set(os.listdir(self.download_dir))
+                                                    new_files = current_files - existing_files
+                                                    
+                                                    if new_files:
+                                                        # 가장 최근 파일 찾기
+                                                        newest_file = None
+                                                        newest_time = 0
+                                                        
+                                                        for filename in new_files:
+                                                            filepath = os.path.join(self.download_dir, filename)
+                                                            if os.path.exists(filepath):
+                                                                file_time = os.path.getctime(filepath)
+                                                                if file_time > newest_time:
+                                                                    newest_time = file_time
+                                                                    newest_file = filename
+                                                        
+                                                        if newest_file:
+                                                            filepath = os.path.join(self.download_dir, newest_file)
+                                                            file_size = os.path.getsize(filepath)
+                                                            
+                                                            if file_size > 5000:  # 5KB 이상
+                                                                # 파일 이름 정리
+                                                                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                                                name, ext = os.path.splitext(newest_file)
+                                                                if not ext:
+                                                                    ext = '.jpg'
+                                                                final_filename = f"imagefx_{timestamp}{ext}"
+                                                                final_filepath = os.path.join(self.download_dir, final_filename)
+                                                                
+                                                                try:
+                                                                    if filepath != final_filepath:
+                                                                        os.rename(filepath, final_filepath)
+                                                                    
+                                                                    logger.info(f"✅ 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
+                                                                    return {
+                                                                        'status': 'success',
+                                                                        'filename': final_filename,
+                                                                        'filepath': final_filepath,
+                                                                        'prompt': prompt,
+                                                                        'aspect_ratio': aspect_ratio,
+                                                                        'generator': 'imagefx',
+                                                                        'file_size': file_size,
+                                                                        'download_method': 'direct_candidate_click'
+                                                                    }
+                                                                except Exception as rename_error:
+                                                                    logger.warning(f"파일 이름 변경 실패: {rename_error}")
+                                                                    return {
+                                                                        'status': 'success',
+                                                                        'filename': newest_file,
+                                                                        'filepath': filepath,
+                                                                        'prompt': prompt,
+                                                                        'aspect_ratio': aspect_ratio,
+                                                                        'generator': 'imagefx',
+                                                                        'file_size': file_size,
+                                                                        'download_method': 'direct_candidate_click'
+                                                                    }
+                                                        
+                                                        break
                                                 
-                                                # 다운로드 처리 로직 직접 실행
-                                                suggested_filename = download.suggested_filename
-                                                logger.info(f"제안된 파일명: {suggested_filename}")
-                                                
-                                                if not suggested_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                                                    suggested_filename += '.jpg'
-                                                
-                                                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                                                name, ext = os.path.splitext(suggested_filename)
-                                                filename = f"imagefx_{timestamp}_{name}{ext}"
-                                                filepath = os.path.join(self.download_dir, filename)
-                                                
-                                                await download.save_as(filepath)
-                                                
-                                                if os.path.exists(filepath):
-                                                    file_size = os.path.getsize(filepath)
-                                                    if file_size > 1000:
-                                                        logger.info(f"✅ 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
-                                                        return {
-                                                            'status': 'success',
-                                                            'filename': filename,
-                                                            'filepath': filepath,
-                                                            'prompt': prompt,
-                                                            'aspect_ratio': aspect_ratio,
-                                                            'generator': 'imagefx',
-                                                            'file_size': file_size,
-                                                            'download_method': 'direct_candidate_click'
-                                                        }
+                                                logger.warning("다운로드 대기 시간 초과")
                                                 
                                             except Exception as download_error:
                                                 logger.warning(f"다운로드 대기 실패: {download_error}")
-                                                download_promise = None
                                         
                                     except Exception as e:
                                         logger.warning(f"후보 클릭 실패: {e}")
@@ -1182,8 +1277,12 @@ class ImageFXGenerator:
                     try:
                         # 다운로드 이벤트 리스너 설정
                         if not download_promise:
-                            download_promise = page.wait_for_download(timeout=30000)
-                            logger.info("다운로드 이벤트 리스너 설정 완료")
+                            try:
+                                # 파일 시스템 방식으로 대체
+                                existing_files_before = set(os.listdir(self.download_dir))
+                                logger.info("파일 시스템 기반 다운로드 감지 설정 완료")
+                            except Exception as e:
+                                logger.warning(f"다운로드 감지 설정 오류: {e}")
                         
                         # 다운로드 버튼 클릭 전 준비
                         logger.info("다운로드 버튼 클릭 준비...")
@@ -1244,58 +1343,75 @@ class ImageFXGenerator:
                         logger.info("📥 다운로드 완료 대기 중...")
                         
                         try:
-                            # 다운로드 이벤트 대기
-                            download = await download_promise
-                            logger.info("✅ 다운로드 이벤트 감지됨!")
+                            # 파일 시스템 기반 대기
+                            for wait_time in range(30):  # 30초 대기
+                                await page.wait_for_timeout(1000)
+                                
+                                # 새 파일 확인
+                                current_files = set(os.listdir(self.download_dir))
+                                new_files = current_files - existing_files_before
+                                
+                                if new_files:
+                                    # 최신 파일 찾기
+                                    newest_file = None
+                                    newest_time = 0
+                                    
+                                    for new_filename in new_files:
+                                        new_filepath = os.path.join(self.download_dir, new_filename)
+                                        if os.path.exists(new_filepath):
+                                            file_time = os.path.getctime(new_filepath)
+                                            if file_time > newest_time:
+                                                newest_time = file_time
+                                                newest_file = new_filename
+                                    
+                                    if newest_file:
+                                        file_path = os.path.join(self.download_dir, newest_file)
+                                        file_size = os.path.getsize(file_path)
+                                        
+                                        if file_size > 1000:  # 1KB 이상
+                                            # 파일명 정리
+                                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                            name, ext = os.path.splitext(newest_file)
+                                            if not ext:
+                                                ext = '.jpg'
+                                            filename = f"imagefx_{timestamp}{ext}"
+                                            filepath = os.path.join(self.download_dir, filename)
+                                            
+                                            try:
+                                                if file_path != filepath:
+                                                    os.rename(file_path, filepath)
+                                                
+                                                logger.info(f"✅ 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
+                                                return {
+                                                    'status': 'success',
+                                                    'filename': filename,
+                                                    'filepath': filepath,
+                                                    'prompt': prompt,
+                                                    'aspect_ratio': aspect_ratio,
+                                                    'generator': 'imagefx',
+                                                    'file_size': file_size,
+                                                    'download_method': 'download_button'
+                                                }
+                                            except Exception as rename_error:
+                                                logger.warning(f"파일 이름 변경 실패: {rename_error}")
+                                                # 원본 파일 그대로 반환
+                                                return {
+                                                    'status': 'success',
+                                                    'filename': newest_file,
+                                                    'filepath': file_path,
+                                                    'prompt': prompt,
+                                                    'aspect_ratio': aspect_ratio,
+                                                    'generator': 'imagefx',
+                                                    'file_size': file_size,
+                                                    'download_method': 'download_button'
+                                                }
+                                        else:
+                                            logger.warning(f"⚠️ 다운로드된 파일이 너무 작음: {file_size} bytes")
                             
-                            # 다운로드된 파일 정보
-                            suggested_filename = download.suggested_filename
-                            logger.info(f"제안된 파일명: {suggested_filename}")
-                            
-                            # 파일 확장자 확인 및 조정
-                            if not suggested_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                                # 확장자가 없거나 이미지가 아니면 .jpg 추가
-                                suggested_filename += '.jpg'
-                                logger.info(f"확장자 조정됨: {suggested_filename}")
-                            
-                            # 타임스탬프 추가하여 고유한 파일명 생성
-                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            name, ext = os.path.splitext(suggested_filename)
-                            filename = f"imagefx_{timestamp}_{name}{ext}"
-                            filepath = os.path.join(self.download_dir, filename)
-                            
-                            # 파일 저장
-                            logger.info(f"파일 저장 중: {filename}")
-                            await download.save_as(filepath)
-                            
-                            # 파일 확인
-                            if os.path.exists(filepath):
-                                file_size = os.path.getsize(filepath)
-                                if file_size > 1000:  # 1KB 이상
-                                    logger.info(f"✅ 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
-                                    return {
-                                        'status': 'success',
-                                        'filename': filename,
-                                        'filepath': filepath,
-                                        'prompt': prompt,
-                                        'aspect_ratio': aspect_ratio,
-                                        'generator': 'imagefx',
-                                        'file_size': file_size,
-                                        'download_method': 'download_button'
-                                    }
-                                else:
-                                    logger.warning(f"⚠️ 다운로드된 파일이 너무 작음: {file_size} bytes")
-                                    try:
-                                        os.remove(filepath)
-                                    except:
-                                        pass
-                            else:
-                                logger.warning("❌ 다운로드된 파일이 생성되지 않음")
+                            logger.warning("📥 다운로드 대기 시간 초과")
                                 
                         except Exception as download_error:
                             logger.warning(f"다운로드 대기 중 오류: {download_error}")
-                            # 다운로드 실패 시 다시 Promise 설정
-                            download_promise = None
                             
                     except Exception as e:
                         logger.warning(f"다운로드 버튼 클릭 실패: {e}")
