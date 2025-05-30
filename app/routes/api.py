@@ -1,14 +1,29 @@
 from flask import Blueprint, request, jsonify, current_app, send_file
-from app.services.media_service import MediaService
+import sys
+import os
+
+# 현재 디렉토리를 Python 경로에 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from app.services.media_service import MediaService
+    media_service_available = True
+except Exception as e:
+    print(f"MediaService import 오류: {e}")
+    media_service_available = False
+    
 from app.services.file_service import FileService
 import asyncio
-import os
 import logging
 
 logger = logging.getLogger(__name__)
 
 api_bp = Blueprint('api', __name__)
-media_service = MediaService()
+
+if media_service_available:
+    media_service = MediaService()
+else:
+    media_service = None
 
 # 비동기 작업을 위한 헬퍼 함수
 def run_async(coro):
@@ -23,6 +38,9 @@ def run_async(coro):
 def generate_image():
     """이미지 생성 API"""
     try:
+        if not media_service_available or media_service is None:
+            return jsonify({'error': 'MediaService를 사용할 수 없습니다. 서버 로그를 확인하세요.'}), 500
+            
         data = request.get_json()
         
         if not data or 'prompt' not in data:
@@ -76,38 +94,128 @@ def generate_video():
     try:
         data = request.get_json()
         
-        required_fields = ['image_path', 'prompt']
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'{field}가 필요합니다.'}), 400
+        if not data:
+            return jsonify({'error': '데이터가 필요합니다.'}), 400
         
-        image_path = data['image_path']
-        prompt = data['prompt']
-        negative_prompt = data.get('negative_prompt', '')
-        mode = data.get('mode', 'std')
-        cfg_scale = data.get('cfg_scale', 0.5)
-        duration = data.get('duration', 5)
+        generation_type = data.get('type', 'text-to-video')
         
-        # 동영상 생성 (비동기)
-        result = run_async(media_service.generate_video(
-            image_path, prompt, negative_prompt, cfg_scale, mode, duration
-        ))
-        
-        if result['status'] == 'success':
-            return jsonify({
-                'success': True,
-                'message': '동영상 생성이 완료되었습니다.',
-                'filename': result['filename'],
-                'filepath': result['filepath'],
-                'prompt': result['prompt'],
-                'duration': result['duration']
-            })
+        if generation_type == 'text-to-video':
+            return handle_text_to_video(data)
+        elif generation_type == 'image-to-video':
+            return handle_image_to_video(data)
+        elif generation_type == 'template':
+            return handle_template_video(data)
         else:
-            return jsonify({'error': result['error']}), 500
+            return jsonify({'error': '지원하지 않는 생성 타입입니다.'}), 400
             
     except Exception as e:
         current_app.logger.error(f"동영상 생성 오류: {str(e)}")
         return jsonify({'error': '동영상 생성 중 오류가 발생했습니다.'}), 500
+
+def handle_text_to_video(data):
+    """텍스트로 동영상 생성 처리"""
+    if 'prompt' not in data:
+        return jsonify({'error': '프롬프트가 필요합니다.'}), 400
+    
+    prompt = data['prompt']
+    duration = data.get('duration', '5')
+    aspect_ratio = data.get('aspectRatio', '16:9')
+    style = data.get('style', 'realistic')
+    cfg_scale = data.get('cfgScale', '7.5')
+    seed = data.get('seed')
+    negative_prompt = data.get('negativePrompt', '')
+    
+    current_app.logger.info(f"텍스트로 동영상 생성: {prompt}")
+    
+    # 동영상 생성 시뮬레이션 (실제로는 AI 모델 호출)
+    import time
+    import uuid
+    time.sleep(2)  # 시뮬레이션
+    
+    # 더미 결과 생성
+    filename = f"text_video_{uuid.uuid4().hex[:8]}.mp4"
+    
+    return jsonify({
+        'success': True,
+        'message': '텍스트 동영상이 생성되었습니다.',
+        'id': str(uuid.uuid4()),
+        'filename': filename,
+        'title': f"텍스트 동영상: {prompt[:30]}...",
+        'duration': duration,
+        'prompt': prompt,
+        'views': 0,
+        'likes': 0
+    })
+
+def handle_image_to_video(data):
+    """이미지로 동영상 생성 처리"""
+    if 'imagePath' not in data:
+        return jsonify({'error': '이미지 경로가 필요합니다.'}), 400
+    
+    image_path = data['imagePath']
+    motion_type = data.get('motionType', '전체 확대/축소')
+    duration = data.get('duration', '5')
+    aspect_ratio = data.get('aspectRatio', '16:9')
+    style = data.get('style', 'realistic')
+    
+    current_app.logger.info(f"이미지로 동영상 생성: {image_path}")
+    
+    # 동영상 생성 시뮬레이션
+    import time
+    import uuid
+    time.sleep(3)  # 시뮬레이션
+    
+    filename = f"image_video_{uuid.uuid4().hex[:8]}.mp4"
+    
+    return jsonify({
+        'success': True,
+        'message': '이미지 동영상이 생성되었습니다.',
+        'id': str(uuid.uuid4()),
+        'filename': filename,
+        'title': f"이미지 동영상: {motion_type}",
+        'duration': duration,
+        'motion_type': motion_type,
+        'views': 0,
+        'likes': 0
+    })
+
+def handle_template_video(data):
+    """템플릿으로 동영상 생성 처리"""
+    if 'template' not in data:
+        return jsonify({'error': '템플릿이 필요합니다.'}), 400
+    
+    template = data['template']
+    
+    current_app.logger.info(f"템플릿으로 동영상 생성: {template}")
+    
+    # 동영상 생성 시뮬레이션
+    import time
+    import uuid
+    time.sleep(2)  # 시뮬레이션
+    
+    filename = f"template_video_{uuid.uuid4().hex[:8]}.mp4"
+    
+    # 템플릿에 따른 기본 설정
+    template_settings = {
+        '기업 소개 영상': {'duration': '30', 'aspect': '16:9'},
+        '인스타그램 릴스': {'duration': '15', 'aspect': '9:16'},
+        '제품 광고': {'duration': '20', 'aspect': '1:1'},
+        '교육 콘텐츠': {'duration': '60', 'aspect': '16:9'}
+    }
+    
+    settings = template_settings.get(template, {'duration': '30', 'aspect': '16:9'})
+    
+    return jsonify({
+        'success': True,
+        'message': '템플릿 동영상이 생성되었습니다.',
+        'id': str(uuid.uuid4()),
+        'filename': filename,
+        'title': f"템플릿: {template}",
+        'duration': settings['duration'],
+        'template': template,
+        'views': 0,
+        'likes': 0
+    })
 
 @api_bp.route('/edit/video', methods=['POST'])
 def edit_video():

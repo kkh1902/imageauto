@@ -4,248 +4,227 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="container">
-        <h1><i class="fas fa-video"></i> AI 동영상 생성</h1>
-        <p>이미지와 텍스트를 조합하여 매력적인 동영상을 제작하세요</p>
+    <h2>동영상 생성</h2>
+    <p>KlingAI를 사용하여 이미지에서 동영상을 생성합니다</p>
+</div>
+
+<div class="video-generation-tabs">
+    <div class="tab-buttons">
+        <button class="tab-btn {% if not default_tab or default_tab == 'text-to-video' %}active{% endif %}" data-tab="text-to-video">
+            <i class="fas fa-magic"></i>
+            텍스트로 만들기
+        </button>
+        <button class="tab-btn {% if default_tab == 'image-to-video' %}active{% endif %}" data-tab="image-to-video">
+            <i class="fas fa-photo-video"></i>
+            이미지로 만들기
+        </button>
+        <button class="tab-btn {% if default_tab == 'template' %}active{% endif %}" data-tab="template">
+            <i class="fas fa-layer-group"></i>
+            템플릿 사용
+        </button>
+    </div>
+
+    <!-- 텍스트로 동영상 생성 -->
+    <div class="tab-content {% if not default_tab or default_tab == 'text-to-video' %}active{% endif %}" id="text-to-video">
+        <div class="generation-form">
+            <div class="form-group">
+                <label for="text-video-prompt">동영상 설명</label>
+                <textarea id="text-video-prompt" rows="4" placeholder="생성하고 싶은 동영상 장면을 설명해주세요...&#10;&#10;예: 석양이 지는 바다 위에서 갈매기들이 날아다니는 모습, 영화적인 느낌"></textarea>
+                <div class="character-count">
+                    <span id="text-prompt-count">0</span>/500
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="text-duration">동영상 길이</label>
+                    <select id="text-duration">
+                        <option value="3">3초</option>
+                        <option value="5" selected>5초</option>
+                        <option value="10">10초</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="text-aspect-ratio">화면 비율</label>
+                    <select id="text-aspect-ratio">
+                        <option value="16:9" selected>16:9 (가로)</option>
+                        <option value="9:16">9:16 (세로)</option>
+                        <option value="1:1">1:1 (정사각형)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="text-style">스타일</label>
+                    <select id="text-style">
+                        <option value="realistic" selected>사실적</option>
+                        <option value="artistic">예술적</option>
+                        <option value="animation">애니메이션</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="advanced-options">
+                <details>
+                    <summary>고급 설정</summary>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="text-cfg-scale">창의성 수준 (CFG Scale)</label>
+                            <input type="range" id="text-cfg-scale" min="1" max="20" value="7.5" step="0.5">
+                            <span class="range-value" id="text-cfg-value">7.5</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="text-seed">시드값 (선택사항)</label>
+                            <input type="number" id="text-seed" placeholder="랜덤">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="text-negative-prompt">네거티브 프롬프트</label>
+                        <textarea id="text-negative-prompt" rows="2" placeholder="제외하고 싶은 요소들..."></textarea>
+                    </div>
+                </details>
+            </div>
+
+            <button id="generate-text-video-btn" class="btn btn-primary">
+                <i class="fas fa-magic"></i> 텍스트로 동영상 생성
+            </button>
+        </div>
+    </div>
+
+    <!-- 이미지로 동영상 생성 -->
+    <div class="tab-content {% if default_tab == 'image-to-video' %}active{% endif %}" id="image-to-video">
+        <div class="generation-form">
+            <div class="form-group">
+                <label for="video-image">소스 이미지</label>
+                <div class="file-upload-area" id="image-upload-area">
+                    <input type="file" id="video-image" accept="image/*" hidden>
+                    <div class="upload-placeholder">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>이미지를 드래그하거나 클릭하여 선택하세요</p>
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('video-image').click()">
+                            파일 선택
+                        </button>
+                    </div>
+                    <div class="upload-preview" id="image-preview" style="display: none;">
+                        <img id="preview-img" alt="Preview">
+                        <button class="remove-file" onclick="removeImage()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="image-video-prompt">동영상 프롬프트</label>
+                <textarea id="image-video-prompt" rows="3" placeholder="이미지에 어떤 움직임을 추가하고 싶은지 설명해주세요..."></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="image-duration">동영상 길이</label>
+                    <select id="image-duration">
+                        <option value="3">3초</option>
+                        <option value="5" selected>5초</option>
+                        <option value="10">10초</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="image-motion-type">모션 타입</label>
+                    <select id="image-motion-type">
+                        <option value="zoom" selected>확대/축소</option>
+                        <option value="pan">수평 이동</option>
+                        <option value="tilt">수직 이동</option>
+                        <option value="rotate">회전</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="generate-image-video-btn" class="btn btn-primary">
+                <i class="fas fa-photo-video"></i> 이미지로 동영상 생성
+            </button>
+        </div>
+    </div>
+
+    <!-- 템플릿으로 동영상 생성 -->
+    <div class="tab-content {% if default_tab == 'template' %}active{% endif %}" id="template">
+        <div class="generation-form">
+            <div class="form-group">
+                <label>템플릿 선택</label>
+                <div class="template-grid">
+                    <div class="template-card" data-template="business">
+                        <div class="template-icon">
+                            <i class="fas fa-briefcase"></i>
+                        </div>
+                        <h4>기업 소개</h4>
+                        <p>전문적인 기업 프레젠테이션 (16:9, 30초)</p>
+                    </div>
+
+                    <div class="template-card" data-template="social">
+                        <div class="template-icon">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <h4>소셜 미디어</h4>
+                        <p>인스타그램 릴스 형태 (9:16, 15초)</p>
+                    </div>
+
+                    <div class="template-card" data-template="product">
+                        <div class="template-icon">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <h4>제품 광고</h4>
+                        <p>매력적인 제품 홍보 (1:1, 20초)</p>
+                    </div>
+
+                    <div class="template-card" data-template="education">
+                        <div class="template-icon">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <h4>교육 콘텐츠</h4>
+                        <p>학습 효과를 높이는 영상 (16:9, 60초)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" id="template-content-group" style="display: none;">
+                <label for="template-content">콘텐츠 입력</label>
+                <textarea id="template-content" rows="4" placeholder="선택한 템플릿에 맞는 내용을 입력하세요..."></textarea>
+            </div>
+
+            <button id="generate-template-video-btn" class="btn btn-primary" disabled>
+                <i class="fas fa-layer-group"></i> 템플릿으로 동영상 생성
+            </button>
+        </div>
     </div>
 </div>
 
-<section class="video-generation">
-    <div class="container">
-        <div class="generation-tabs">
-            <div class="tab-buttons">
-                <button class="tab-btn active" data-tab="template">템플릿으로 만들기</button>
-                <button class="tab-btn" data-tab="custom">직접 만들기</button>
-                <button class="tab-btn" data-tab="text-to-video">텍스트로 만들기</button>
-            </div>
-
-            <!-- 템플릿 기반 생성 -->
-            <div class="tab-content active" id="template-tab">
-                <div class="template-section">
-                    <h3><i class="fas fa-layer-group"></i> 템플릿 선택</h3>
-                    <div class="template-grid">
-                        <div class="template-card">
-                            <div class="template-preview">
-                                <i class="fas fa-play"></i>
-                                <div class="template-type">소셜 미디어</div>
-                            </div>
-                            <h4>인스타그램 스토리</h4>
-                            <p>9:16 세로형 동영상</p>
-                            <button class="btn btn-primary">선택</button>
-                        </div>
-
-                        <div class="template-card">
-                            <div class="template-preview">
-                                <i class="fas fa-play"></i>
-                                <div class="template-type">프레젠테이션</div>
-                            </div>
-                            <h4>제품 소개</h4>
-                            <p>16:9 가로형 동영상</p>
-                            <button class="btn btn-primary">선택</button>
-                        </div>
-
-                        <div class="template-card">
-                            <div class="template-preview">
-                                <i class="fas fa-play"></i>
-                                <div class="template-type">광고</div>
-                            </div>
-                            <h4>홍보 동영상</h4>
-                            <p>정사각형 동영상</p>
-                            <button class="btn btn-primary">선택</button>
-                        </div>
-
-                        <div class="template-card">
-                            <div class="template-preview">
-                                <i class="fas fa-play"></i>
-                                <div class="template-type">교육</div>
-                            </div>
-                            <h4>강의 영상</h4>
-                            <p>16:9 가로형 동영상</p>
-                            <button class="btn btn-primary">선택</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="content-input">
-                    <h3><i class="fas fa-edit"></i> 콘텐츠 입력</h3>
-                    <div class="input-grid">
-                        <div class="input-group">
-                            <label>제목</label>
-                            <input type="text" placeholder="동영상 제목을 입력하세요">
-                        </div>
-                        <div class="input-group">
-                            <label>부제목</label>
-                            <input type="text" placeholder="부제목을 입력하세요">
-                        </div>
-                        <div class="input-group full-width">
-                            <label>메인 텍스트</label>
-                            <textarea placeholder="동영상에 포함될 주요 내용을 입력하세요" rows="4"></textarea>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 직접 만들기 -->
-            <div class="tab-content" id="custom-tab">
-                <div class="custom-builder">
-                    <div class="timeline-section">
-                        <h3><i class="fas fa-film"></i> 타임라인</h3>
-                        <div class="timeline">
-                            <div class="timeline-track">
-                                <div class="track-header">비디오</div>
-                                <div class="track-content"></div>
-                            </div>
-                            <div class="timeline-track">
-                                <div class="track-header">오디오</div>
-                                <div class="track-content"></div>
-                            </div>
-                            <div class="timeline-track">
-                                <div class="track-header">텍스트</div>
-                                <div class="track-content"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="media-library">
-                        <h3><i class="fas fa-folder"></i> 미디어 라이브러리</h3>
-                        <div class="library-tabs">
-                            <button class="library-tab active">이미지</button>
-                            <button class="library-tab">비디오</button>
-                            <button class="library-tab">음악</button>
-                            <button class="library-tab">효과음</button>
-                        </div>
-                        <div class="media-grid">
-                            <div class="media-item">
-                                <div class="media-placeholder">
-                                    <i class="fas fa-plus"></i>
-                                </div>
-                                <span>미디어 추가</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 텍스트로 만들기 -->
-            <div class="tab-content" id="text-to-video-tab">
-                <div class="text-to-video-section">
-                    <h3><i class="fas fa-microphone"></i> 스크립트 입력</h3>
-                    <textarea 
-                        id="videoScript" 
-                        placeholder="동영상으로 만들고 싶은 내용을 입력하세요...&#10;&#10;예: 우리 회사의 새로운 제품을 소개합니다. 이 제품은 혁신적인 기술로 만들어졌으며..."
-                        rows="8"
-                    ></textarea>
-
-                    <div class="voice-options">
-                        <h4><i class="fas fa-volume-up"></i> 음성 설정</h4>
-                        <div class="option-grid">
-                            <div class="option-group">
-                                <label>음성 타입</label>
-                                <select id="voiceType">
-                                    <option value="female-1">여성 음성 1 (부드러운)</option>
-                                    <option value="female-2">여성 음성 2 (활기찬)</option>
-                                    <option value="male-1">남성 음성 1 (차분한)</option>
-                                    <option value="male-2">남성 음성 2 (힘찬)</option>
-                                </select>
-                            </div>
-                            <div class="option-group">
-                                <label>말하기 속도</label>
-                                <input type="range" id="speechSpeed" min="0.5" max="2" step="0.1" value="1">
-                                <span class="range-value">1.0x</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="visual-style">
-                        <h4><i class="fas fa-palette"></i> 비주얼 스타일</h4>
-                        <div class="style-grid">
-                            <div class="style-option">
-                                <div class="style-preview business">
-                                    <i class="fas fa-briefcase"></i>
-                                </div>
-                                <span>비즈니스</span>
-                            </div>
-                            <div class="style-option">
-                                <div class="style-preview casual">
-                                    <i class="fas fa-heart"></i>
-                                </div>
-                                <span>캐주얼</span>
-                            </div>
-                            <div class="style-option">
-                                <div class="style-preview tech">
-                                    <i class="fas fa-robot"></i>
-                                </div>
-                                <span>테크</span>
-                            </div>
-                            <div class="style-option">
-                                <div class="style-preview education">
-                                    <i class="fas fa-graduation-cap"></i>
-                                </div>
-                                <span>교육</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 생성 버튼 -->
-        <div class="generation-controls">
-            <button class="btn btn-primary btn-large" id="generateVideoBtn">
-                <i class="fas fa-video"></i>
-                동영상 생성하기
-            </button>
-        </div>
-
-        <!-- 생성 진행률 -->
-        <div class="generation-progress" id="videoProgress" style="display: none;">
-            <div class="progress-info">
-                <h4>동영상 생성 중...</h4>
-                <p id="progressMessage">스크립트 분석 중...</p>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="videoProgressFill"></div>
-            </div>
-            <div class="progress-percentage" id="progressPercentage">0%</div>
-        </div>
-
-        <!-- 최근 생성 동영상 -->
-        <div class="recent-videos">
-            <h3><i class="fas fa-history"></i> 최근 생성한 동영상</h3>
-            <div class="video-grid">
-                <div class="video-card">
-                    <div class="video-thumbnail">
-                        <i class="fas fa-play"></i>
-                        <div class="video-duration">0:30</div>
-                    </div>
-                    <div class="video-info">
-                        <h4>제품 소개 영상</h4>
-                        <p>10분 전</p>
-                    </div>
-                    <div class="video-actions">
-                        <button class="btn btn-sm btn-secondary">편집</button>
-                        <button class="btn btn-sm btn-primary">다운로드</button>
-                    </div>
-                </div>
-
-                <div class="video-card">
-                    <div class="video-thumbnail">
-                        <i class="fas fa-play"></i>
-                        <div class="video-duration">1:15</div>
-                    </div>
-                    <div class="video-info">
-                        <h4>회사 소개</h4>
-                        <p>1시간 전</p>
-                    </div>
-                    <div class="video-actions">
-                        <button class="btn btn-sm btn-secondary">편집</button>
-                        <button class="btn btn-sm btn-primary">다운로드</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+<!-- 생성 진행률 -->
+<div id="video-progress" class="progress-container" style="display: none;">
+    <div class="progress-header">
+        <h4>동영상 생성 중...</h4>
+        <p id="progress-message">처리 중입니다...</p>
     </div>
-</section>
+    <div class="progress-bar">
+        <div class="progress-fill" id="video-progress-fill"></div>
+    </div>
+    <div class="progress-percentage" id="progress-percentage">0%</div>
+</div>
+
+<!-- 생성 결과 -->
+<div id="video-result" class="result-container" style="display: none;">
+    <h3>생성 결과</h3>
+    <div class="result-content" id="video-result-content">
+        <!-- 동적으로 로드됨 -->
+    </div>
+</div>
+
+<!-- 최근 생성한 동영상 -->
+<div class="recent-videos">
+    <h3>최근 생성한 동영상</h3>
+    <div id="recent-videos-grid" class="media-grid">
+        <p style="text-align: center; color: #6b7280; grid-column: 1 / -1;">아직 생성된 동영상이 없습니다.</p>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}

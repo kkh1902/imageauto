@@ -332,11 +332,12 @@ class ImageFXGenerator:
         
         # 기존 텍스트 지우고 새 프롬프트 입력
         await prompt_input.click()
-        await prompt_input.fill("")
-        await page.wait_for_timeout(500)
-        await prompt_input.type(prompt, delay=50)
+        await prompt_input.fill(prompt)  # fill()이 가장 빠름
         
-        logger.info("프롬프트 입력 완료")
+        # 프롬프트 입력 후 충분한 대기 시간
+        await page.wait_for_timeout(3000)
+        
+        logger.info("프롬프트 입력 완료 및 대기")
 
     async def _set_aspect_ratio(self, page, aspect_ratio):
         """가로세로 비율 설정"""
@@ -636,146 +637,704 @@ class ImageFXGenerator:
             logger.info("생성 버튼을 찾을 수 없어 Enter 키로 시도")
             await page.keyboard.press('Enter')
         
-        # 생성 시작 확인을 위한 잠시 대기
-        await page.wait_for_timeout(3000)
+        # 생성 시작 확인을 위한 충분한 대기
+        await page.wait_for_timeout(10000)
 
     async def _wait_and_download_image(self, page, prompt, aspect_ratio):
         """생성 완료 대기 및 이미지 다운로드"""
         logger.info("🎨 이미지 생성 완료 대기 중...")
         
-        # 생성 완료까지 최대 대기 시간 (5분)
-        max_wait_time = 300
-        check_interval = 5
+        # 생성 완료까지 최대 대기 시간 (10분)
+        max_wait_time = 600
+        check_interval = 10
+        
+        # 다운로드 이벤트를 위한 Promise 설정
+        download_promise = None
+        downloaded_file = None
         
         for elapsed in range(0, max_wait_time, check_interval):
             try:
                 # 진행 상황 로그
-                if elapsed % 30 == 0 and elapsed > 0:
+                if elapsed % 60 == 0 and elapsed > 0:
                     logger.info(f"⏳ 이미지 생성 대기 중... ({elapsed}/{max_wait_time}초)")
+                elif elapsed % 30 == 0:
+                    logger.debug(f"⏳ 생성 대기 중... ({elapsed}초)")
                 
-                # 더 간단하고 확실한 이미지 찾기
-                logger.debug(f"🔍 이미지 검색 시도 {elapsed}초...")
+                # 다운로드 아이콘 찾기
+                if elapsed % 30 == 0:
+                    logger.debug(f"🔍 다운로드 아이콘 검색 시도 {elapsed}초...")
                 
-                # 모든 img 요소 찾기
-                all_images = await page.locator('img').all()
-                logger.debug(f"📷 전체 img 요소 {len(all_images)}개 발견")
+                # 1단계: 더보기 버튼 찾기
+                more_button_selectors = [
+                    'button:has(i.material-icons:has-text("more_vert"))',
+                    'button:has(i:has-text("more_vert"))',
+                    'button[aria-label*="더보기"]',
+                    'button[aria-label*="옵션"]',
+                    'i.material-icons:has-text("more_vert")',
+                    'i:has-text("more_vert")',
+                ]
                 
-                for i, img in enumerate(all_images):
+                # 2단계: 다운로드 메뉴 아이템 찾기 (더보기 클릭 후)
+                download_menu_selectors = [
+                    # 메뉴 아이템 with 다운로드 아이콘과 텍스트
+                    'div[role="menuitem"]:has(i.google-symbols:has-text("download"))',
+                    'div[role="menuitem"]:has(i:has-text("download"))',
+                    'div[role="menuitem"]:has-text("다운로드")',
+                    '[role="menuitem"]:has(i:has-text("download"))',
+                    '[role="menuitem"]:has-text("다운로드")',
+                    
+                    # 일반적인 다운로드 요소들 (폴백)
+                    'i:has-text("download")',
+                    'i.material-icons:has-text("download")',
+                    'i.material-symbols-outlined:has-text("download")',
+                    'i.google-symbols:has-text("download")',
+                    'button:has(i:has-text("download"))',
+                    'button[aria-label*="download"]',
+                    'button[aria-label*="Download"]',
+                    'button[aria-label*="다운로드"]',
+                ]
+                
+                download_button = None
+                
+                # 1단계: 더보기 버튼 찾기 및 클릭
+                more_button = None
+                for i, selector in enumerate(more_button_selectors):
                     try:
-                        # 이미지가 보이는지 확인
-                        is_visible = await img.is_visible()
-                        if not is_visible:
-                            continue
-                            
-                        # 이미지 크기 확인
-                        box = await img.bounding_box()
-                        if not box:
-                            continue
-                            
-                        logger.debug(f"이미지 {i+1}: 크기 {box['width']}x{box['height']}")
+                        logger.debug(f"더보기 버튼 선택자 시도 {i+1}/{len(more_button_selectors)}: {selector}")
                         
-                        # 충분히 큰 이미지인지 확인 (아이콘이나 소형 이미지 제외)
-                        if box['width'] > 200 and box['height'] > 200:
-                            # 이미지 URL 확인
-                            image_url = await img.get_attribute('src') or ''
-                            
-                            # 기본 이미지 제외 (온보딩 이미지 등)
-                            excluded_keywords = ['whisk_onboarding', 'onboarding', 'placeholder', 'tutorial', 'sample', 'example']
-                            is_excluded = any(keyword in image_url.lower() for keyword in excluded_keywords)
-                            
-                            if is_excluded:
-                                logger.debug(f"이미지 {i+1} 제외: 기본 이미지 ({image_url[:50]}...)")
+                        elements = await page.locator(selector).all()
+                        logger.debug(f"  -> {len(elements)}개 요소 발견")
+                        
+                        for j, element in enumerate(elements):
+                            try:
+                                # 요소가 보이고 클릭 가능한지 확인
+                                is_visible = await element.is_visible()
+                                if not is_visible:
+                                    continue
+                                
+                                # 요소가 실제로 클릭 가능한지 확인
+                                try:
+                                    box = await element.bounding_box()
+                                    if not box or box['width'] < 10 or box['height'] < 10:
+                                        continue
+                                except:
+                                    continue
+                                
+                                more_button = element
+                                logger.info(f"✅ 더보기 버튼 발견: 선택자 '{selector}', 요소 {j+1}")
+                                break
+                                
+                            except Exception as e:
+                                logger.debug(f"  -> 요소 {j+1} 처리 중 오류: {e}")
                                 continue
-                            
-                            logger.info(f"✨ 큰 이미지 발견! 크기: {box['width']}x{box['height']}, URL: {image_url[:100] if image_url else 'None'}...")
-                            
-                            # 즉시 스크린샷으로 다운로드 시도 (가장 확실한 방법)
-                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            filename = f"imagefx_{timestamp}.png"
-                            filepath = os.path.join(self.download_dir, filename)
-                            
-                            try:
-                                logger.info(f"📸 스크린샷 다운로드 시도: {filename}")
-                                await img.screenshot(path=filepath)
-                                
-                                # 파일 확인
-                                if os.path.exists(filepath):
-                                    file_size = os.path.getsize(filepath)
-                                    if file_size > 5000:  # 5KB 이상
-                                        logger.info(f"✅ 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
-                                        return {
-                                            'status': 'success',
-                                            'filename': filename,
-                                            'filepath': filepath,
-                                            'prompt': prompt,
-                                            'aspect_ratio': aspect_ratio,
-                                            'generator': 'imagefx',
-                                            'file_size': file_size
-                                        }
-                                    else:
-                                        logger.warning(f"⚠️ 파일이 너무 작음: {file_size} bytes")
-                                        # 파일 삭제
-                                        try:
-                                            os.remove(filepath)
-                                        except:
-                                            pass
-                                else:
-                                    logger.warning("❌ 스크린샷 파일이 생성되지 않음")
-                                    
-                            except Exception as e:
-                                logger.warning(f"스크린샷 실패: {e}")
-                                
-                    except Exception as e:
-                        logger.debug(f"이미지 {i+1} 처리 중 오류: {e}")
-                        continue
-                
-                # Canvas 요소도 확인
-                all_canvas = await page.locator('canvas').all()
-                logger.debug(f"🎨 전체 canvas 요소 {len(all_canvas)}개 발견")
-                
-                for i, canvas in enumerate(all_canvas):
-                    try:
-                        is_visible = await canvas.is_visible()
-                        if not is_visible:
-                            continue
-                            
-                        box = await canvas.bounding_box()
-                        if not box:
-                            continue
-                            
-                        logger.debug(f"Canvas {i+1}: 크기 {box['width']}x{box['height']}")
                         
-                        if box['width'] > 200 and box['height'] > 200:
-                            logger.info(f"✨ 큰 Canvas 발견! 크기: {box['width']}x{box['height']}")
+                        if more_button:
+                            break
                             
-                            # Canvas 스크린샷 시도
+                    except Exception as e:
+                        logger.debug(f"선택자 '{selector}' 시도 중 오류: {e}")
+                        continue
+                
+                # 더보기 버튼을 찾았으면 클릭
+                if more_button:
+                    try:
+                        # ESC 키로 이전 메뉴 닫기 (있다면)
+                        try:
+                            await page.keyboard.press('Escape')
+                            await page.wait_for_timeout(500)
+                        except:
+                            pass
+                        
+                        logger.info("📋 더보기 버튼 클릭 시도...")
+                        await more_button.scroll_into_view_if_needed()
+                        await page.wait_for_timeout(1500)  # 더 긴 대기
+                        
+                        # 더보기 버튼 클릭 시도
+                        more_click_success = False
+                        
+                        # 1. 일반 클릭
+                        try:
+                            await more_button.click(timeout=10000)
+                            more_click_success = True
+                            logger.info("✅ 더보기 버튼 일반 클릭 성공")
+                        except Exception as e:
+                            logger.warning(f"더보기 버튼 일반 클릭 실패: {e}")
+                        
+                        # 2. JavaScript 클릭
+                        if not more_click_success:
+                            try:
+                                await page.evaluate('arguments[0].click()', more_button)
+                                more_click_success = True
+                                logger.info("✅ 더보기 버튼 JavaScript 클릭 성공")
+                            except Exception as e:
+                                logger.warning(f"더보기 버튼 JavaScript 클릭 실패: {e}")
+                        
+                        # 3. 포스 클릭
+                        if not more_click_success:
+                            try:
+                                box = await more_button.bounding_box()
+                                if box:
+                                    x = box['x'] + box['width'] / 2
+                                    y = box['y'] + box['height'] / 2
+                                    await page.mouse.click(x, y)
+                                    more_click_success = True
+                                    logger.info("✅ 더보기 버튼 포스 클릭 성공")
+                            except Exception as e:
+                                logger.error(f"더보기 버튼 포스 클릭 실패: {e}")
+                        
+                        if not more_click_success:
+                            logger.error("❌ 더보기 버튼 모든 클릭 방법 실패!")
+                            continue
+                        
+                        # 드롭다운 메뉴 나타날 때까지 대기 및 확인
+                        logger.info("드롭다운 메뉴 로딩 대기 중...")
+                        await page.wait_for_timeout(5000)  # 5초로 증가
+                        
+                        # 메뉴가 실제로 나타났는지 확인 (최대 10초간 시도)
+                        menu_appeared = False
+                        for check_attempt in range(10):  # 최대 10번 확인
+                            try:
+                                # 메뉴 컨테이너 확인
+                                menu_containers = await page.locator('[role="menu"], [data-radix-menu-content], .dropdown, .menu').all()
+                                visible_menus = []
+                                for menu in menu_containers:
+                                    if await menu.is_visible():
+                                        visible_menus.append(menu)
+                                
+                                if visible_menus:
+                                    logger.info(f"✅ {len(visible_menus)}개의 메뉴 컨테이너 발견됨")
+                                    menu_appeared = True
+                                    break
+                                else:
+                                    logger.debug(f"메뉴 확인 시도 {check_attempt + 1}/10 - 메뉴가 아직 나타나지 않음")
+                                    await page.wait_for_timeout(1000)
+                            except Exception as e:
+                                logger.debug(f"메뉴 확인 중 오류: {e}")
+                                await page.wait_for_timeout(1000)
+                        
+                        if not menu_appeared:
+                            logger.warning("⚠️ 드롭다운 메뉴가 나타나지 않았을 가능성이 있음")
+                        
+                        # 현재 페이지의 모든 메뉴 아이템 디버깅
+                        try:
+                            logger.info("🔍 현재 페이지의 모든 메뉴 관련 요소들:")
+                            
+                            # 정확한 HTML 구조에 맞는 선택자들 추가
+                            precise_selectors = [
+                                # 제공된 정확한 HTML 구조 기반
+                                'div[role="menuitem"].sc-ef24c21d-2.fcJHxi:has(i.google-symbols:has-text("download"))',
+                                'div[role="menuitem"].fcJHxi:has(i.google-symbols:has-text("download"))',
+                                'div[role="menuitem"]:has(i.google-symbols:has-text("download"))',
+                                
+                                # 클래스 기반
+                                '.sc-ef24c21d-2.fcJHxi:has(i.google-symbols:has-text("download"))',
+                                '.fcJHxi:has(i.google-symbols:has-text("download"))',
+                                
+                                # data-radix 속성 기반
+                                '[data-radix-collection-item]:has(i.google-symbols:has-text("download"))',
+                                
+                                # 텍스트 기반
+                                'div[role="menuitem"]:has-text("다운로드")',
+                                '[role="menuitem"]:has-text("다운로드")',
+                                
+                                # 아이콘 기반
+                                'i.google-symbols:has-text("download")',
+                                'i.ojlmB.google-symbols:has-text("download")',
+                            ]
+                            
+                            # 정확한 선택자들을 먼저 시도
+                            download_found_precise = False
+                            for i, selector in enumerate(precise_selectors):
+                                try:
+                                    logger.info(f"🎯 정밀 선택자 시도 {i+1}/{len(precise_selectors)}: {selector}")
+                                    
+                                    # 선택자 대기
+                                    try:
+                                        await page.wait_for_selector(selector, timeout=3000)
+                                        logger.info(f"✅ 정밀 선택자 '{selector}'로 요소 발견!")
+                                    except:
+                                        logger.debug(f"정밀 선택자 '{selector}' 대기 타임아웃")
+                                    
+                                    elements = await page.locator(selector).all()
+                                    logger.info(f"  -> {len(elements)}개 요소 발견")
+                                    
+                                    for j, element in enumerate(elements):
+                                        try:
+                                            is_visible = await element.is_visible()
+                                            if not is_visible:
+                                                logger.debug(f"  -> 요소 {j+1} 보이지 않음")
+                                                continue
+                                            
+                                            # 요소 정보 로깅
+                                            try:
+                                                element_text = await element.inner_text()
+                                                element_html = await element.inner_html()
+                                                logger.info(f"  ✅ 정밀 다운로드 요소 {j+1}: text='{element_text.strip()}'")
+                                                logger.debug(f"     HTML: {element_html[:200]}...")
+                                            except Exception as e:
+                                                logger.debug(f"  -> 요소 {j+1} 정보 읽기 실패: {e}")
+                                            
+                                            # 즉시 다운로드 시도
+                                            logger.info(f"📥 정밀 다운로드 요소 클릭 시도...")
+                                            
+                                            # 다운로드 Promise 설정
+                                            if not download_promise:
+                                                download_promise = page.wait_for_download(timeout=30000)
+                                                logger.info("다운로드 이벤트 리스너 설정")
+                                            
+                                            # 스크롤 및 대기
+                                            await element.scroll_into_view_if_needed()
+                                            await page.wait_for_timeout(1000)
+                                            
+                                            # 3단계 클릭 시도
+                                            precise_clicked = False
+                                            
+                                            # 1. 일반 클릭
+                                            try:
+                                                await element.click(timeout=5000)
+                                                precise_clicked = True
+                                                logger.info("✅ 정밀 요소 일반 클릭 성공")
+                                            except Exception as e:
+                                                logger.debug(f"정밀 요소 일반 클릭 실패: {e}")
+                                            
+                                            # 2. JavaScript 클릭
+                                            if not precise_clicked:
+                                                try:
+                                                    await page.evaluate('arguments[0].click()', element)
+                                                    precise_clicked = True
+                                                    logger.info("✅ 정밀 요소 JavaScript 클릭 성공")
+                                                except Exception as e:
+                                                    logger.debug(f"정밀 요소 JavaScript 클릭 실패: {e}")
+                                            
+                                            # 3. 포스 클릭
+                                            if not precise_clicked:
+                                                try:
+                                                    box = await element.bounding_box()
+                                                    if box:
+                                                        x = box['x'] + box['width'] / 2
+                                                        y = box['y'] + box['height'] / 2
+                                                        await page.mouse.click(x, y)
+                                                        precise_clicked = True
+                                                        logger.info("✅ 정밀 요소 포스 클릭 성공")
+                                                except Exception as e:
+                                                    logger.debug(f"정밀 요소 포스 클릭 실패: {e}")
+                                            
+                                            if precise_clicked:
+                                                # 다운로드 대기
+                                                logger.info("📥 정밀 요소 다운로드 대기 중...")
+                                                
+                                                try:
+                                                    download = await download_promise
+                                                    logger.info("✅ 정밀 요소 다운로드 이벤트 감지!")
+                                                    
+                                                    # 파일 처리
+                                                    suggested_filename = download.suggested_filename
+                                                    logger.info(f"제안된 파일명: {suggested_filename}")
+                                                    
+                                                    if not suggested_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                                                        suggested_filename += '.jpg'
+                                                    
+                                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                                    name, ext = os.path.splitext(suggested_filename)
+                                                    filename = f"imagefx_{timestamp}_{name}{ext}"
+                                                    filepath = os.path.join(self.download_dir, filename)
+                                                    
+                                                    await download.save_as(filepath)
+                                                    
+                                                    if os.path.exists(filepath):
+                                                        file_size = os.path.getsize(filepath)
+                                                        if file_size > 1000:
+                                                            logger.info(f"✅ 정밀 선택자로 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
+                                                            return {
+                                                                'status': 'success',
+                                                                'filename': filename,
+                                                                'filepath': filepath,
+                                                                'prompt': prompt,
+                                                                'aspect_ratio': aspect_ratio,
+                                                                'generator': 'imagefx',
+                                                                'file_size': file_size,
+                                                                'download_method': 'precise_selector_click'
+                                                            }
+                                                    
+                                                except Exception as download_error:
+                                                    logger.warning(f"정밀 요소 다운로드 대기 실패: {download_error}")
+                                                    download_promise = None
+                                            
+                                            download_found_precise = True
+                                            break
+                                            
+                                        except Exception as e:
+                                            logger.debug(f"  -> 정밀 요소 {j+1} 처리 중 오류: {e}")
+                                            continue
+                                    
+                                    if download_found_precise:
+                                        break
+                                        
+                                except Exception as e:
+                                    logger.debug(f"정밀 선택자 '{selector}' 시도 중 오류: {e}")
+                                    continue
+                            
+                            # 정밀 선택자로 성공하면 일반 스캔 생략
+                            if download_found_precise:
+                                logger.info("✅ 정밀 선택자로 다운로드 완료, 일반 스캔 생략")
+                            else:
+                                # 1. 모든 메뉴 아이템 찾기 (정밀 선택자 실패 시만 실행)
+                                logger.info("⚠️ 정밀 선택자 실패, 일반 스캔 시작...")
+                            logger.info(f"전체 메뉴 아이템 수: {len(all_menu_items)}")
+                            
+                            for idx, item in enumerate(all_menu_items[:15]):  # 최대 15개만 로깅
+                                try:
+                                    is_visible = await item.is_visible()
+                                    text_content = await item.inner_text()
+                                    html_content = await item.inner_html()
+                                    logger.info(f"  메뉴 아이템 {idx+1}: visible={is_visible}")
+                                    logger.info(f"    text: '{text_content.strip()}'")
+                                    logger.info(f"    html: {html_content[:200]}...")
+                                    
+                                    # 다운로드 관련 키워드 찾기
+                                    if "다운로드" in text_content or "download" in text_content.lower() or "download" in html_content.lower():
+                                        logger.info(f"    ⭐ 다운로드 관련 아이템 발견!")
+                                except Exception as e:
+                                    logger.debug(f"  메뉴 아이템 {idx+1} 정보 읽기 실패: {e}")
+                            
+                            # 2. 모든 클릭 가능한 요소 찾기
+                            logger.info("\n🔍 모든 클릭 가능한 요소들:")
+                            clickable_elements = await page.locator('button, [role="button"], [role="menuitem"], a, div[onclick], span[onclick]').all()
+                            logger.info(f"전체 클릭 가능 요소 수: {len(clickable_elements)}")
+                            
+                            download_candidates = []
+                            for idx, elem in enumerate(clickable_elements[:20]):  # 최대 20개
+                                try:
+                                    is_visible = await elem.is_visible()
+                                    if not is_visible:
+                                        continue
+                                    
+                                    text = await elem.inner_text()
+                                    html = await elem.inner_html()
+                                    
+                                    # 다운로드 관련 요소인지 확인
+                                    if ("다운로드" in text.lower() or 
+                                        "download" in text.lower() or 
+                                        "download" in html.lower() or
+                                        'google-symbols' in html and 'download' in html):
+                                        
+                                        download_candidates.append({
+                                            'index': idx,
+                                            'element': elem,
+                                            'text': text.strip(),
+                                            'html_preview': html[:150]
+                                        })
+                                        logger.info(f"  ⭐ 다운로드 후보 {len(download_candidates)}: text='{text.strip()}'")
+                                        
+                                except Exception as e:
+                                    continue
+                            
+                            logger.info(f"\n🎯 총 {len(download_candidates)}개의 다운로드 후보 발견!")
+                            
+                            # 3. 다운로드 후보가 있으면 직접 클릭 시도
+                            if download_candidates:
+                                for candidate in download_candidates:
+                                    logger.info(f"\n📥 다운로드 후보 클릭 시도: '{candidate['text']}'")
+                                    
+                                    try:
+                                        # 다운로드 이벤트 리스너 설정
+                                        if not download_promise:
+                                            download_promise = page.wait_for_download(timeout=30000)
+                                            logger.info("다운로드 이벤트 리스너 설정 완료")
+                                        
+                                        elem = candidate['element']
+                                        
+                                        # 스크롤 및 대기
+                                        await elem.scroll_into_view_if_needed()
+                                        await page.wait_for_timeout(1000)
+                                        
+                                        # 다양한 방법으로 클릭 시도
+                                        clicked = False
+                                        
+                                        # 1. 일반 클릭
+                                        try:
+                                            await elem.click(timeout=5000)
+                                            clicked = True
+                                            logger.info("✅ 일반 클릭 성공")
+                                        except Exception as e:
+                                            logger.debug(f"일반 클릭 실패: {e}")
+                                        
+                                        # 2. JavaScript 클릭
+                                        if not clicked:
+                                            try:
+                                                await page.evaluate('arguments[0].click()', elem)
+                                                clicked = True
+                                                logger.info("✅ JavaScript 클릭 성공")
+                                            except Exception as e:
+                                                logger.debug(f"JavaScript 클릭 실패: {e}")
+                                        
+                                        # 3. 포스 클릭
+                                        if not clicked:
+                                            try:
+                                                box = await elem.bounding_box()
+                                                if box:
+                                                    x = box['x'] + box['width'] / 2
+                                                    y = box['y'] + box['height'] / 2
+                                                    await page.mouse.click(x, y)
+                                                    clicked = True
+                                                    logger.info("✅ 포스 클릭 성곳")
+                                            except Exception as e:
+                                                logger.debug(f"포스 클릭 실패: {e}")
+                                        
+                                        if clicked:
+                                            # 다운로드 대기
+                                            logger.info("📥 다운로드 이벤트 대기 중...")
+                                            
+                                            try:
+                                                download = await download_promise
+                                                logger.info("✅ 다운로드 이벤트 감지됨!")
+                                                
+                                                # 다운로드 처리 로직 직접 실행
+                                                suggested_filename = download.suggested_filename
+                                                logger.info(f"제안된 파일명: {suggested_filename}")
+                                                
+                                                if not suggested_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                                                    suggested_filename += '.jpg'
+                                                
+                                                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                                name, ext = os.path.splitext(suggested_filename)
+                                                filename = f"imagefx_{timestamp}_{name}{ext}"
+                                                filepath = os.path.join(self.download_dir, filename)
+                                                
+                                                await download.save_as(filepath)
+                                                
+                                                if os.path.exists(filepath):
+                                                    file_size = os.path.getsize(filepath)
+                                                    if file_size > 1000:
+                                                        logger.info(f"✅ 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
+                                                        return {
+                                                            'status': 'success',
+                                                            'filename': filename,
+                                                            'filepath': filepath,
+                                                            'prompt': prompt,
+                                                            'aspect_ratio': aspect_ratio,
+                                                            'generator': 'imagefx',
+                                                            'file_size': file_size,
+                                                            'download_method': 'direct_candidate_click'
+                                                        }
+                                                
+                                            except Exception as download_error:
+                                                logger.warning(f"다운로드 대기 실패: {download_error}")
+                                                download_promise = None
+                                        
+                                    except Exception as e:
+                                        logger.warning(f"후보 클릭 실패: {e}")
+                                        continue
+                                        
+                        except Exception as e:
+                            logger.debug(f"메뉴 아이템 디버깅 실패: {e}")
+                        
+                        # 기존 선택자 방식은 상단에서 시도했으므로 생략
+                        
+                    except Exception as e:
+                        logger.warning(f"더보기 버튼 클릭 실패: {e}")
+                        
+                else:
+                    logger.debug("더보기 버튼을 찾지 못함, 직접 다운로드 버튼 검색...")
+                    
+                    # 더보기 버튼을 찾지 못한 경우 직접 다운로드 버튼 찾기
+                    for i, selector in enumerate(download_menu_selectors):
+                        try:
+                            logger.debug(f"다운로드 선택자 시도 {i+1}/{len(download_menu_selectors)}: {selector}")
+                            
+                            elements = await page.locator(selector).all()
+                            logger.debug(f"  -> {len(elements)}개 요소 발견")
+                            
+                            for j, element in enumerate(elements):
+                                try:
+                                    # 요소가 보이고 클릭 가능한지 확인
+                                    is_visible = await element.is_visible()
+                                    if not is_visible:
+                                        continue
+                                    
+                                    # 요소가 실제로 클릭 가능한지 확인
+                                    try:
+                                        box = await element.bounding_box()
+                                        if not box or box['width'] < 10 or box['height'] < 10:
+                                            continue
+                                    except:
+                                        continue
+                                    
+                                    download_button = element
+                                    logger.info(f"✅ 다운로드 요소 발견: 선택자 '{selector}', 요소 {j+1}")
+                                    break
+                                    
+                                except Exception as e:
+                                    logger.debug(f"  -> 요소 {j+1} 처리 중 오류: {e}")
+                                    continue
+                            
+                            if download_button:
+                                break
+                                
+                        except Exception as e:
+                            logger.debug(f"선택자 '{selector}' 시도 중 오류: {e}")
+                            continue
+                
+                # 다운로드 메뉴 아이템을 찾았으면 클릭 시도
+                if download_button:
+                    logger.info("📥 다운로드 메뉴 아이템 클릭 시도...")
+                    
+                    try:
+                        # 다운로드 이벤트 리스너 설정
+                        if not download_promise:
+                            download_promise = page.wait_for_download(timeout=30000)
+                            logger.info("다운로드 이벤트 리스너 설정 완료")
+                        
+                        # 다운로드 버튼 클릭 전 준비
+                        logger.info("다운로드 버튼 클릭 준비...")
+                        
+                        # 요소가 화면에 보이도록 스크롤
+                        try:
+                            await download_button.scroll_into_view_if_needed()
+                            await page.wait_for_timeout(1000)
+                            logger.info("요소 스크롤 완료")
+                        except Exception as e:
+                            logger.warning(f"스크롤 실패: {e}")
+                        
+                        # 클릭 시도 순서: 일반 클릭 -> JavaScript 클릭 -> 포스 클릭
+                        click_success = False
+                        
+                        # 1. 일반 클릭 시도
+                        try:
+                            logger.info("🔑 일반 클릭 시도...")
+                            await download_button.click(timeout=10000)
+                            click_success = True
+                            logger.info("✅ 일반 클릭 성공")
+                        except Exception as e:
+                            logger.warning(f"일반 클릭 실패: {e}")
+                        
+                        # 2. JavaScript 클릭 시도
+                        if not click_success:
+                            try:
+                                logger.info("🔑 JavaScript 클릭 시도...")
+                                await page.evaluate('arguments[0].click()', download_button)
+                                click_success = True
+                                logger.info("✅ JavaScript 클릭 성공")
+                            except Exception as e:
+                                logger.warning(f"JavaScript 클릭 실패: {e}")
+                        
+                        # 3. 포스 클릭 시도 (최후 수단)
+                        if not click_success:
+                            try:
+                                logger.info("🔑 포스 클릭 시도...")
+                                box = await download_button.bounding_box()
+                                if box:
+                                    x = box['x'] + box['width'] / 2
+                                    y = box['y'] + box['height'] / 2
+                                    await page.mouse.click(x, y)
+                                    click_success = True
+                                    logger.info("✅ 포스 클릭 성공")
+                                else:
+                                    logger.error("요소의 바운딩 박스를 가져올 수 없음")
+                            except Exception as e:
+                                logger.error(f"포스 클릭 실패: {e}")
+                        
+                        if not click_success:
+                            logger.error("❌ 모든 클릭 방법 실패!")
+                            # 다음 시도를 위해 download_promise 초기화
+                            download_promise = None
+                            continue
+                        
+                        # 다운로드 완료 대기
+                        logger.info("📥 다운로드 완료 대기 중...")
+                        
+                        try:
+                            # 다운로드 이벤트 대기
+                            download = await download_promise
+                            logger.info("✅ 다운로드 이벤트 감지됨!")
+                            
+                            # 다운로드된 파일 정보
+                            suggested_filename = download.suggested_filename
+                            logger.info(f"제안된 파일명: {suggested_filename}")
+                            
+                            # 파일 확장자 확인 및 조정
+                            if not suggested_filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                                # 확장자가 없거나 이미지가 아니면 .jpg 추가
+                                suggested_filename += '.jpg'
+                                logger.info(f"확장자 조정됨: {suggested_filename}")
+                            
+                            # 타임스탬프 추가하여 고유한 파일명 생성
                             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            filename = f"imagefx_canvas_{timestamp}.png"
+                            name, ext = os.path.splitext(suggested_filename)
+                            filename = f"imagefx_{timestamp}_{name}{ext}"
                             filepath = os.path.join(self.download_dir, filename)
                             
-                            try:
-                                await canvas.screenshot(path=filepath)
+                            # 파일 저장
+                            logger.info(f"파일 저장 중: {filename}")
+                            await download.save_as(filepath)
+                            
+                            # 파일 확인
+                            if os.path.exists(filepath):
+                                file_size = os.path.getsize(filepath)
+                                if file_size > 1000:  # 1KB 이상
+                                    logger.info(f"✅ 이미지 다운로드 성공! 파일 크기: {file_size:,} bytes")
+                                    return {
+                                        'status': 'success',
+                                        'filename': filename,
+                                        'filepath': filepath,
+                                        'prompt': prompt,
+                                        'aspect_ratio': aspect_ratio,
+                                        'generator': 'imagefx',
+                                        'file_size': file_size,
+                                        'download_method': 'download_button'
+                                    }
+                                else:
+                                    logger.warning(f"⚠️ 다운로드된 파일이 너무 작음: {file_size} bytes")
+                                    try:
+                                        os.remove(filepath)
+                                    except:
+                                        pass
+                            else:
+                                logger.warning("❌ 다운로드된 파일이 생성되지 않음")
                                 
-                                if os.path.exists(filepath):
-                                    file_size = os.path.getsize(filepath)
-                                    if file_size > 5000:
-                                        logger.info(f"✅ Canvas 스크린샷 성공! 파일 크기: {file_size:,} bytes")
-                                        return {
-                                            'status': 'success',
-                                            'filename': filename,
-                                            'filepath': filepath,
-                                            'prompt': prompt,
-                                            'aspect_ratio': aspect_ratio,
-                                            'generator': 'imagefx',
-                                            'file_size': file_size
-                                        }
-                                        
-                            except Exception as e:
-                                logger.warning(f"Canvas 스크린샷 실패: {e}")
-                                
+                        except Exception as download_error:
+                            logger.warning(f"다운로드 대기 중 오류: {download_error}")
+                            # 다운로드 실패 시 다시 Promise 설정
+                            download_promise = None
+                            
                     except Exception as e:
-                        logger.debug(f"Canvas {i+1} 처리 중 오류: {e}")
-                        continue
+                        logger.warning(f"다운로드 버튼 클릭 실패: {e}")
+                        
+                else:
+                    # 다운로드 버튼을 찾지 못한 경우, 기존 스크린샷 방식으로 폴백
+                    logger.debug("다운로드 버튼을 찾지 못함, 이미지 확인 중...")
+                    
+                    # 생성된 이미지가 있는지 확인
+                    all_images = await page.locator('img').all()
+                    
+                    for i, img in enumerate(all_images):
+                        try:
+                            # 이미지가 보이는지 확인
+                            is_visible = await img.is_visible()
+                            if not is_visible:
+                                continue
+                                
+                            # 이미지 크기 확인
+                            box = await img.bounding_box()
+                            if not box:
+                                continue
+                                
+                            # 충분히 큰 이미지인지 확인 (아이콘이나 소형 이미지 제외)
+                            if box['width'] > 200 and box['height'] > 200:
+                                # 이미지 URL 확인
+                                image_url = await img.get_attribute('src') or ''
+                                
+                                # 기본 이미지 제외
+                                excluded_keywords = ['whisk_onboarding', 'onboarding', 'placeholder', 'tutorial', 'sample', 'example']
+                                is_excluded = any(keyword in image_url.lower() for keyword in excluded_keywords)
+                                
+                                if not is_excluded:
+                                    logger.info(f"🖼️ 생성된 이미지 발견! 크기: {box['width']}x{box['height']}")
+                                    logger.info("다운로드 버튼이 나타날 때까지 계속 대기...")
+                                    break
+                                    
+                        except Exception as e:
+                            continue
                 
                 # 아무것도 찾지 못하면 다음 체크까지 대기
                 await page.wait_for_timeout(check_interval * 1000)
@@ -792,21 +1351,51 @@ class ImageFXGenerator:
         await page.screenshot(path=screenshot_path, full_page=True)
         logger.info(f"📸 타임아웃 디버깅 스크린샷 저장: {screenshot_path}")
         
-        # 현재 페이지의 모든 이미지 정보 덤프
+        # 마지막으로 스크린샷 방식으로 폴백 시도
+        logger.info("🔄 마지막 폴백: 스크린샷 방식으로 시도...")
         try:
-            logger.info("🔍 타임아웃 시 모든 이미지 정보:")
-            all_images_final = await page.locator('img').all()
-            for i, img in enumerate(all_images_final[:10]):  # 최대 10개
+            all_images = await page.locator('img').all()
+            for i, img in enumerate(all_images):
                 try:
-                    src = await img.get_attribute('src')
-                    alt = await img.get_attribute('alt')
-                    box = await img.bounding_box()
                     is_visible = await img.is_visible()
-                    size_info = f"{box['width']}x{box['height']}" if box else "No box"
-                    logger.info(f"  이미지 {i+1}: visible={is_visible}, size={size_info}, src={src[:50] if src else 'None'}..., alt={alt}")
-                except:
-                    pass
-        except:
-            pass
+                    if not is_visible:
+                        continue
+                        
+                    box = await img.bounding_box()
+                    if not box or box['width'] <= 200 or box['height'] <= 200:
+                        continue
+                        
+                    image_url = await img.get_attribute('src') or ''
+                    excluded_keywords = ['whisk_onboarding', 'onboarding', 'placeholder', 'tutorial', 'sample', 'example']
+                    is_excluded = any(keyword in image_url.lower() for keyword in excluded_keywords)
+                    
+                    if not is_excluded:
+                        # 스크린샷으로 폴백
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"imagefx_fallback_{timestamp}.png"
+                        filepath = os.path.join(self.download_dir, filename)
+                        
+                        await img.screenshot(path=filepath)
+                        
+                        if os.path.exists(filepath):
+                            file_size = os.path.getsize(filepath)
+                            if file_size > 5000:
+                                logger.info(f"✅ 폴백 스크린샷 성공! 파일 크기: {file_size:,} bytes")
+                                return {
+                                    'status': 'success',
+                                    'filename': filename,
+                                    'filepath': filepath,
+                                    'prompt': prompt,
+                                    'aspect_ratio': aspect_ratio,
+                                    'generator': 'imagefx',
+                                    'file_size': file_size,
+                                    'download_method': 'screenshot_fallback'
+                                }
+                        break
+                        
+                except Exception as e:
+                    continue
+        except Exception as e:
+            logger.error(f"폴백 시도 중 오류: {e}")
         
-        raise Exception("이미지 생성 시간 초과. 생성된 이미지를 찾을 수 없습니다.")
+        raise Exception("이미지 생성 시간 초과. 다운로드 버튼을 찾을 수 없고 생성된 이미지도 확인할 수 없습니다.")

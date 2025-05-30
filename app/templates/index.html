@@ -3,375 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ImageAuto - AI 미디어 생성 플랫폼</title>
+    <title>홈 - ImageAuto</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <h1 class="nav-title">ImageAuto</h1>
+            <h1 class="nav-title">
+                <a href="{{ url_for('main.index') }}" style="text-decoration: none; color: inherit;">
+                    ImageAuto
+                </a>
+            </h1>
             <ul class="nav-menu">
-                <li><a href="#" data-page="home" class="nav-link active">홈</a></li>
-                <li><a href="#" data-page="image-generation" class="nav-link">이미지 생성</a></li>
-                <li><a href="#" data-page="video-generation" class="nav-link">동영상 생성</a></li>
-                <li><a href="#" data-page="video-editor" class="nav-link">동영상 편집</a></li>
-                <li><a href="#" data-page="workflow" class="nav-link">워크플로우</a></li>
+                <li><a href="{{ url_for('main.index') }}" class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}">홈</a></li>
+                <li><a href="{{ url_for('main.image_generation') }}" class="nav-link {% if request.endpoint == 'main.image_generation' %}active{% endif %}">이미지 생성</a></li>
+                <li><a href="{{ url_for('main.video_generation') }}" class="nav-link {% if request.endpoint == 'main.video_generation' %}active{% endif %}">동영상 생성</a></li>
+                <li><a href="{{ url_for('main.video_editor') }}" class="nav-link {% if request.endpoint == 'main.video_editor' %}active{% endif %}">동영상 편집</a></li>
+                <li><a href="{{ url_for('main.workflow') }}" class="nav-link {% if request.endpoint == 'main.workflow' %}active{% endif %}">워크플로우</a></li>
             </ul>
         </div>
     </nav>
 
     <main class="main-content">
-        <!-- 홈 페이지 -->
-        <div id="home" class="page active">
-            <div class="hero-section">
-                <h2 class="hero-title">AI 기반 미디어 생성 플랫폼</h2>
-                <p class="hero-subtitle">이미지 생성부터 동영상 편집까지 모든 것을 한 곳에서</p>
-                
-                <div class="feature-grid">
-                    <div class="feature-card" data-page="image-generation">
-                        <i class="fas fa-image feature-icon"></i>
-                        <h3>이미지 생성</h3>
-                        <p>ImageFX를 사용하여 고품질 이미지를 생성합니다</p>
-                    </div>
-                    
-                    <div class="feature-card" data-page="video-generation">
-                        <i class="fas fa-video feature-icon"></i>
-                        <h3>동영상 생성</h3>
-                        <p>KlingAI를 활용하여 이미지에서 동영상을 만듭니다</p>
-                    </div>
-                    
-                    <div class="feature-card" data-page="video-editor">
-                        <i class="fas fa-film feature-icon"></i>
-                        <h3>동영상 편집</h3>
-                        <p>FFmpeg로 자막 추가, 트리밍 등 다양한 편집이 가능합니다</p>
-                    </div>
-                    
-                    <div class="feature-card" data-page="workflow">
-                        <i class="fas fa-project-diagram feature-icon"></i>
-                        <h3>통합 워크플로우</h3>
-                        <p>모든 과정을 하나의 워크플로우로 자동화합니다</p>
-                    </div>
-                </div>
-            </div>
+        <div class="hero-section">
+            <h2 class="hero-title">AI 기반 미디어 생성 플랫폼</h2>
+            <p class="hero-subtitle">이미지 생성부터 동영상 편집까지 모든 것을 한 곳에서</p>
             
-            <div class="recent-media">
-                <h3>최근 생성된 미디어</h3>
-                <div id="recent-media-grid" class="media-grid">
-                    <!-- 동적으로 로드됨 -->
+            <div class="feature-grid">
+                <div class="feature-card" onclick="window.location.href='{{ url_for('main.image_generation') }}'">
+                    <i class="fas fa-image feature-icon"></i>
+                    <h3>이미지 생성</h3>
+                    <p>ImageFX를 사용하여 고품질 이미지를 생성합니다</p>
+                </div>
+                
+                <div class="feature-card" onclick="window.location.href='{{ url_for('main.video_generation') }}'">
+                    <i class="fas fa-video feature-icon"></i>
+                    <h3>동영상 생성</h3>
+                    <p>KlingAI를 활용하여 이미지에서 동영상을 만듭니다</p>
+                </div>
+                
+                <div class="feature-card" onclick="window.location.href='{{ url_for('main.video_editor') }}'">
+                    <i class="fas fa-film feature-icon"></i>
+                    <h3>동영상 편집</h3>
+                    <p>FFmpeg로 자막 추가, 트리밍 등 다양한 편집이 가능합니다</p>
+                </div>
+                
+                <div class="feature-card" onclick="window.location.href='{{ url_for('main.workflow') }}'">
+                    <i class="fas fa-project-diagram feature-icon"></i>
+                    <h3>통합 워크플로우</h3>
+                    <p>모든 과정을 하나의 워크플로우로 자동화합니다</p>
                 </div>
             </div>
         </div>
-
-        <!-- 이미지 생성 페이지 -->
-        <div id="image-generation" class="page">
-            <div class="page-header">
-                <h2>이미지 생성</h2>
-                <p>ImageFX를 사용하여 AI 이미지를 생성합니다</p>
-            </div>
-            
-            <div class="generation-form">
-                <div class="form-group">
-                    <label for="image-prompt">프롬프트</label>
-                    <textarea id="image-prompt" rows="4" placeholder="생성하고 싶은 이미지를 설명해주세요..."></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label for="aspect-ratio">가로세로 비율</label>
-                    <select id="aspect-ratio">
-                        <option value="9:16" selected>9:16 (세로)</option>
-                        <option value="16:9">16:9 (가로)</option>
-                        <option value="1:1">1:1 (정사각형)</option>
-                        <option value="4:3">4:3</option>
-                        <option value="3:4">3:4</option>
-                    </select>
-                </div>
-                
-                <button id="generate-image-btn" class="btn btn-primary">
-                    <i class="fas fa-magic"></i> 이미지 생성
-                </button>
-            </div>
-            
-            <div id="image-result" class="result-container" style="display: none;">
-                <h3>생성 결과</h3>
-                <div class="result-content"></div>
-            </div>
-        </div>
-
-        <!-- 동영상 생성 페이지 -->
-        <div id="video-generation" class="page">
-            <div class="page-header">
-                <h2>동영상 생성</h2>
-                <p>KlingAI를 사용하여 이미지에서 동영상을 생성합니다</p>
-            </div>
-            
-            <div class="generation-form">
-                <div class="form-group">
-                    <label for="video-image">소스 이미지</label>
-                    <input type="file" id="video-image" accept="image/*">
-                    <div id="image-preview" class="image-preview"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="video-prompt">동영상 프롬프트</label>
-                    <textarea id="video-prompt" rows="3" placeholder="동영상의 움직임을 설명해주세요..."></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label for="negative-prompt">네거티브 프롬프트 (선택사항)</label>
-                    <textarea id="negative-prompt" rows="2" placeholder="원하지 않는 요소를 설명해주세요..."></textarea>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="video-mode">생성 모드</label>
-                        <select id="video-mode">
-                            <option value="std">표준 모드</option>
-                            <option value="pro">프로 모드</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="video-duration">동영상 길이 (초)</label>
-                        <select id="video-duration">
-                            <option value="5" selected>5초</option>
-                            <option value="10">10초</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="cfg-scale">창의성 수준</label>
-                    <input type="range" id="cfg-scale" min="0" max="1" step="0.1" value="0.5">
-                    <span id="cfg-value">0.5</span>
-                </div>
-                
-                <button id="generate-video-btn" class="btn btn-primary">
-                    <i class="fas fa-video"></i> 동영상 생성
-                </button>
-            </div>
-            
-            <div id="video-result" class="result-container" style="display: none;">
-                <h3>생성 결과</h3>
-                <div class="result-content"></div>
-            </div>
-        </div>
-
-        <!-- 동영상 편집 페이지 -->
-        <div id="video-editor" class="page">
-            <div class="page-header">
-                <h2>동영상 편집</h2>
-                <p>FFmpeg를 사용하여 동영상을 편집합니다</p>
-            </div>
-            
-            <div class="editor-form">
-                <div class="form-group">
-                    <label for="edit-video">편집할 동영상</label>
-                    <input type="file" id="edit-video" accept="video/*">
-                    <div id="video-preview" class="video-preview"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit-action">편집 작업</label>
-                    <select id="edit-action">
-                        <option value="add_subtitles">자막 추가</option>
-                        <option value="trim">동영상 자르기</option>
-                        <option value="merge">동영상 합치기</option>
-                        <option value="add_watermark">워터마크 추가</option>
-                    </select>
-                </div>
-                
-                <!-- 자막 추가 옵션 -->
-                <div id="subtitle-options" class="edit-options">
-                    <div class="subtitle-list">
-                        <h4>자막 목록</h4>
-                        <div id="subtitles-container"></div>
-                        <button id="add-subtitle-btn" class="btn btn-secondary">
-                            <i class="fas fa-plus"></i> 자막 추가
-                        </button>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="font-size">폰트 크기</label>
-                            <input type="number" id="font-size" value="24" min="12" max="72">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="font-color">폰트 색상</label>
-                            <select id="font-color">
-                                <option value="white">흰색</option>
-                                <option value="black">검은색</option>
-                                <option value="yellow">노란색</option>
-                                <option value="red">빨간색</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 트리밍 옵션 -->
-                <div id="trim-options" class="edit-options" style="display: none;">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="trim-start">시작 시간 (초)</label>
-                            <input type="number" id="trim-start" value="0" min="0" step="0.1">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="trim-end">종료 시간 (초)</label>
-                            <input type="number" id="trim-end" value="10" min="0" step="0.1">
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 합치기 옵션 -->
-                <div id="merge-options" class="edit-options" style="display: none;">
-                    <div class="form-group">
-                        <label>추가 동영상</label>
-                        <input type="file" id="additional-videos" accept="video/*" multiple>
-                        <div id="merge-video-list"></div>
-                    </div>
-                </div>
-                
-                <!-- 워터마크 옵션 -->
-                <div id="watermark-options" class="edit-options" style="display: none;">
-                    <div class="form-group">
-                        <label for="watermark-image">워터마크 이미지</label>
-                        <input type="file" id="watermark-image" accept="image/*">
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="watermark-position">위치</label>
-                            <select id="watermark-position">
-                                <option value="bottom-right">우측 하단</option>
-                                <option value="bottom-left">좌측 하단</option>
-                                <option value="top-right">우측 상단</option>
-                                <option value="top-left">좌측 상단</option>
-                                <option value="center">중앙</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="watermark-opacity">투명도</label>
-                            <input type="range" id="watermark-opacity" min="0" max="1" step="0.1" value="0.5">
-                            <span id="opacity-value">0.5</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <button id="edit-video-btn" class="btn btn-primary">
-                    <i class="fas fa-edit"></i> 편집 시작
-                </button>
-            </div>
-            
-            <div id="edit-result" class="result-container" style="display: none;">
-                <h3>편집 결과</h3>
-                <div class="result-content"></div>
-            </div>
-        </div>
-
-        <!-- 워크플로우 페이지 -->
-        <div id="workflow" class="page">
-            <div class="page-header">
-                <h2>통합 워크플로우</h2>
-                <p>이미지 생성부터 동영상 편집까지 한번에 처리합니다</p>
-            </div>
-            
-            <div class="workflow-form">
-                <div class="workflow-step">
-                    <h3><span class="step-number">1</span> 이미지 생성</h3>
-                    <div class="form-group">
-                        <label for="workflow-image-prompt">이미지 프롬프트</label>
-                        <textarea id="workflow-image-prompt" rows="3" placeholder="생성할 이미지를 설명해주세요..."></textarea>
-                    </div>
-                </div>
-                
-                <div class="workflow-step">
-                    <h3><span class="step-number">2</span> 동영상 생성</h3>
-                    <div class="form-group">
-                        <label for="workflow-video-prompt">동영상 프롬프트</label>
-                        <textarea id="workflow-video-prompt" rows="3" placeholder="동영상의 움직임을 설명해주세요..."></textarea>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="workflow-duration">동영상 길이</label>
-                            <select id="workflow-duration">
-                                <option value="5" selected>5초</option>
-                                <option value="10">10초</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="workflow-mode">생성 모드</label>
-                            <select id="workflow-mode">
-                                <option value="std">표준</option>
-                                <option value="pro">프로</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="workflow-step">
-                    <h3><span class="step-number">3</span> 동영상 편집 (선택사항)</h3>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="workflow-add-subtitles"> 자막 추가
-                        </label>
-                    </div>
-                    
-                    <div id="workflow-subtitle-options" style="display: none;">
-                        <div class="subtitle-simple">
-                            <textarea id="workflow-subtitle-text" rows="2" placeholder="자막 텍스트를 입력하세요..."></textarea>
-                        </div>
-                    </div>
-                </div>
-                
-                <button id="start-workflow-btn" class="btn btn-primary btn-large">
-                    <i class="fas fa-play"></i> 워크플로우 시작
-                </button>
-            </div>
-            
-            <div id="workflow-progress" class="workflow-progress" style="display: none;">
-                <h3>진행 상황</h3>
-                <div class="progress-steps">
-                    <div class="progress-step" data-step="image">
-                        <i class="fas fa-image"></i>
-                        <span>이미지 생성</span>
-                    </div>
-                    <div class="progress-step" data-step="video">
-                        <i class="fas fa-video"></i>
-                        <span>동영상 생성</span>
-                    </div>
-                    <div class="progress-step" data-step="edit">
-                        <i class="fas fa-edit"></i>
-                        <span>편집</span>
-                    </div>
-                </div>
-                <div class="progress-message"></div>
-            </div>
-            
-            <div id="workflow-result" class="result-container" style="display: none;">
-                <h3>워크플로우 결과</h3>
-                <div class="result-content"></div>
+        
+        <div class="recent-media">
+            <h3>최근 생성된 미디어</h3>
+            <div id="recent-media-grid" class="media-grid">
+                <!-- 동적으로 로드됨 -->
             </div>
         </div>
     </main>
 
-    <!-- 로딩 오버레이 -->
-    <div id="loading-overlay" class="loading-overlay" style="display: none;">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <p class="loading-text">처리 중입니다...</p>
-        </div>
-    </div>
-
-    <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/image-generation.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/video-generation.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/video-editor.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/workflow.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // 최근 미디어 로드
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecentMedia();
+        });
+
+        async function loadRecentMedia() {
+            try {
+                const response = await fetch('/api/media/list');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayRecentMedia(data.media);
+                }
+            } catch (error) {
+                console.error('최근 미디어 로드 오류:', error);
+            }
+        }
+
+        function displayRecentMedia(media) {
+            const grid = document.getElementById('recent-media-grid');
+            grid.innerHTML = '';
+            
+            // 최근 파일들만 표시 (최대 6개)
+            const allFiles = [
+                ...media.images.map(f => ({ type: 'image', name: f, path: `images/${f}` })),
+                ...media.videos.map(f => ({ type: 'video', name: f, path: `videos/${f}` }))
+            ].slice(0, 6);
+            
+            if (allFiles.length === 0) {
+                grid.innerHTML = '<p style="text-align: center; color: #6b7280; grid-column: 1 / -1;">아직 생성된 미디어가 없습니다. 위의 기능을 사용해 보세요!</p>';
+                return;
+            }
+            
+            allFiles.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'media-item';
+                item.innerHTML = `
+                    ${file.type === 'image' 
+                        ? `<img src="/uploads/${file.path}" alt="${file.name}" loading="lazy">`
+                        : `<video src="/uploads/${file.path}" preload="metadata"></video>`
+                    }
+                    <div class="media-info">
+                        <div style="font-weight: 500;">${file.name}</div>
+                        <div style="font-size: 0.75rem; opacity: 0.7;">${file.type === 'image' ? '이미지' : '동영상'}</div>
+                    </div>
+                `;
+                grid.appendChild(item);
+            });
+        }
+    </script>
 </body>
 </html>

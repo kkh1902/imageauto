@@ -7,8 +7,43 @@ main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
 def index():
-    """메인 페이지 - 모든 기능을 포함하는 SPA"""
+    """메인 페이지 - 워크플로우"""
     return render_template('index.html')
+
+@main_bp.route('/workflow')
+def workflow():
+    """워크플로우 페이지"""
+    return render_template('workflow.html')
+
+@main_bp.route('/image-generation')
+def image_generation():
+    """이미지 생성 페이지"""
+    return render_template('image_generation.html')
+
+@main_bp.route('/video-generation')
+def video_generation():
+    """동영상 생성 페이지 - 새로운 이쁜 디자인"""
+    return render_template('video_generation.html')
+
+@main_bp.route('/video-generation/text-to-video')
+def text_to_video():
+    """텍스트로 동영상 생성 페이지"""
+    return render_template('video_generation.html', default_tab='text-to-video')
+
+@main_bp.route('/video-generation/image-to-video')
+def image_to_video():
+    """이미지로 동영상 생성 페이지"""
+    return render_template('video_generation.html', default_tab='image-to-video')
+
+@main_bp.route('/video-generation/template')
+def template_video():
+    """템플릿으로 동영상 생성 페이지"""
+    return render_template('video_generation.html', default_tab='template')
+
+@main_bp.route('/video-editor')
+def video_editor():
+    """동영상 편집 페이지"""
+    return render_template('video_editor.html')
 
 @main_bp.route('/api/upload', methods=['POST'])
 def upload_file():

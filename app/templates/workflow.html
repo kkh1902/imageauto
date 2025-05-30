@@ -1,136 +1,116 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>워크플로우 - ImageAuto</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">
+                <a href="{{ url_for('main.index') }}" style="text-decoration: none; color: inherit;">
+                    ImageAuto
+                </a>
+            </h1>
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('main.index') }}" class="nav-link">홈</a></li>
+                <li><a href="{{ url_for('main.image_generation') }}" class="nav-link">이미지 생성</a></li>
+                <li><a href="{{ url_for('main.video_generation') }}" class="nav-link">동영상 생성</a></li>
+                <li><a href="{{ url_for('main.video_editor') }}" class="nav-link">동영상 편집</a></li>
+                <li><a href="{{ url_for('main.workflow') }}" class="nav-link active">워크플로우</a></li>
+            </ul>
+        </div>
+    </nav>
 
-{% block title %}워크플로우 - ImageAuto{% endblock %}
-
-{% block content %}
-<div class="page-header">
-    <div class="container">
-        <h1><i class="fas fa-project-diagram"></i> 워크플로우 생성</h1>
-        <p>복잡한 작업을 자동화하여 효율성을 극대화하세요</p>
-    </div>
-</div>
-
-<section class="workflow-builder">
-    <div class="container">
-        <div class="workflow-interface">
-            <!-- 도구 팔레트 -->
-            <div class="tool-palette">
-                <h3><i class="fas fa-toolbox"></i> 도구</h3>
-                <div class="tool-category">
-                    <h4>입력</h4>
-                    <div class="tool-item" draggable="true" data-tool="image-input">
-                        <i class="fas fa-upload"></i>
-                        <span>이미지 업로드</span>
-                    </div>
-                    <div class="tool-item" draggable="true" data-tool="text-input">
-                        <i class="fas fa-keyboard"></i>
-                        <span>텍스트 입력</span>
-                    </div>
+    <main class="main-content">
+        <div class="page-header">
+            <h2>통합 워크플로우</h2>
+            <p>이미지 생성부터 동영상 편집까지 한번에 처리합니다</p>
+        </div>
+        
+        <div class="workflow-form">
+            <div class="workflow-step">
+                <h3><span class="step-number">1</span> 이미지 생성</h3>
+                <div class="form-group">
+                    <label for="workflow-image-prompt">이미지 프롬프트</label>
+                    <textarea id="workflow-image-prompt" rows="3" placeholder="생성할 이미지를 설명해주세요..."></textarea>
+                </div>
+            </div>
+            
+            <div class="workflow-step">
+                <h3><span class="step-number">2</span> 동영상 생성</h3>
+                <div class="form-group">
+                    <label for="workflow-video-prompt">동영상 프롬프트</label>
+                    <textarea id="workflow-video-prompt" rows="3" placeholder="동영상의 움직임을 설명해주세요..."></textarea>
                 </div>
                 
-                <div class="tool-category">
-                    <h4>처리</h4>
-                    <div class="tool-item" draggable="true" data-tool="resize">
-                        <i class="fas fa-expand-arrows-alt"></i>
-                        <span>리사이즈</span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="workflow-duration">동영상 길이</label>
+                        <select id="workflow-duration">
+                            <option value="5" selected>5초</option>
+                            <option value="10">10초</option>
+                        </select>
                     </div>
-                    <div class="tool-item" draggable="true" data-tool="filter">
-                        <i class="fas fa-filter"></i>
-                        <span>필터 적용</span>
+                    
+                    <div class="form-group">
+                        <label for="workflow-mode">생성 모드</label>
+                        <select id="workflow-mode">
+                            <option value="std">표준</option>
+                            <option value="pro">프로</option>
+                        </select>
                     </div>
-                    <div class="tool-item" draggable="true" data-tool="ai-enhance">
-                        <i class="fas fa-magic"></i>
-                        <span>AI 향상</span>
-                    </div>
+                </div>
+            </div>
+            
+            <div class="workflow-step">
+                <h3><span class="step-number">3</span> 동영상 편집 (선택사항)</h3>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="workflow-add-subtitles"> 자막 추가
+                    </label>
                 </div>
                 
-                <div class="tool-category">
-                    <h4>출력</h4>
-                    <div class="tool-item" draggable="true" data-tool="save">
-                        <i class="fas fa-save"></i>
-                        <span>파일 저장</span>
-                    </div>
-                    <div class="tool-item" draggable="true" data-tool="export">
-                        <i class="fas fa-download"></i>
-                        <span>내보내기</span>
+                <div id="workflow-subtitle-options" style="display: none;">
+                    <div class="subtitle-simple">
+                        <textarea id="workflow-subtitle-text" rows="2" placeholder="자막 텍스트를 입력하세요..."></textarea>
                     </div>
                 </div>
             </div>
-
-            <!-- 워크플로우 캔버스 -->
-            <div class="workflow-canvas">
-                <div class="canvas-header">
-                    <h3><i class="fas fa-sitemap"></i> 워크플로우 디자인</h3>
-                    <div class="canvas-controls">
-                        <button class="btn btn-secondary" id="clearCanvas">
-                            <i class="fas fa-trash"></i> 초기화
-                        </button>
-                        <button class="btn btn-primary" id="runWorkflow">
-                            <i class="fas fa-play"></i> 실행
-                        </button>
-                    </div>
-                </div>
-                <div class="canvas-area" id="workflowCanvas">
-                    <div class="canvas-placeholder">
-                        <i class="fas fa-mouse-pointer"></i>
-                        <p>왼쪽에서 도구를 드래그하여 워크플로우를 만드세요</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 속성 패널 -->
-            <div class="properties-panel">
-                <h3><i class="fas fa-cog"></i> 속성</h3>
-                <div class="properties-content" id="propertiesContent">
-                    <div class="no-selection">
-                        <i class="fas fa-info-circle"></i>
-                        <p>노드를 선택하면 속성을 편집할 수 있습니다</p>
-                    </div>
-                </div>
-            </div>
+            
+            <button id="start-workflow-btn" class="btn btn-primary btn-large">
+                <i class="fas fa-play"></i> 워크플로우 시작
+            </button>
         </div>
-
-        <!-- 저장된 워크플로우 -->
-        <div class="saved-workflows">
-            <h3><i class="fas fa-folder"></i> 저장된 워크플로우</h3>
-            <div class="workflow-grid">
-                <div class="workflow-card">
-                    <div class="workflow-preview">
-                        <i class="fas fa-image"></i>
-                    </div>
-                    <h4>이미지 일괄 처리</h4>
-                    <p>여러 이미지의 크기 조정 및 필터 적용</p>
-                    <div class="workflow-actions">
-                        <button class="btn btn-sm btn-secondary">편집</button>
-                        <button class="btn btn-sm btn-primary">실행</button>
-                    </div>
+        
+        <div id="workflow-progress" class="workflow-progress" style="display: none;">
+            <h3>진행 상황</h3>
+            <div class="progress-steps">
+                <div class="progress-step" data-step="image">
+                    <i class="fas fa-image"></i>
+                    <span>이미지 생성</span>
                 </div>
-
-                <div class="workflow-card">
-                    <div class="workflow-preview">
-                        <i class="fas fa-magic"></i>
-                    </div>
-                    <h4>AI 품질 향상</h4>
-                    <p>AI를 활용한 이미지 품질 자동 개선</p>
-                    <div class="workflow-actions">
-                        <button class="btn btn-sm btn-secondary">편집</button>
-                        <button class="btn btn-sm btn-primary">실행</button>
-                    </div>
+                <div class="progress-step" data-step="video">
+                    <i class="fas fa-video"></i>
+                    <span>동영상 생성</span>
                 </div>
-
-                <div class="workflow-card new-workflow">
-                    <div class="workflow-preview">
-                        <i class="fas fa-plus"></i>
-                    </div>
-                    <h4>새 워크플로우</h4>
-                    <p>새로운 워크플로우를 만들어보세요</p>
+                <div class="progress-step" data-step="edit">
+                    <i class="fas fa-edit"></i>
+                    <span>편집</span>
                 </div>
             </div>
+            <div class="progress-message"></div>
         </div>
-    </div>
-</section>
-{% endblock %}
+        
+        <div id="workflow-result" class="result-container" style="display: none;">
+            <h3>워크플로우 결과</h3>
+            <div class="result-content"></div>
+        </div>
+    </main>
 
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/workflow.js') }}"></script>
-{% endblock %}
+    <script src="{{ url_for('static', filename='js/workflow.js') }}"></script>
+</body>
+</html>
