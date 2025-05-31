@@ -2,8 +2,7 @@ import os
 import asyncio
 from .generators.imagefx_generator import ImageFXGenerator
 from .generators.placeholder_generator import PlaceholderGenerator
-from .generators.klingai_generator import KlingAIVideoGenerator
-from .generators.placeholder_video_generator import PlaceholderVideoGenerator
+from .generators.unified_video_generator import UnifiedVideoGenerator, VideoGeneratorType
 from .video_editor import VideoEditor
 import logging
 
@@ -21,14 +20,30 @@ class MediaService:
             logger.info("ImageFX 생성기를 사용합니다.")
             self.image_generator = ImageFXGenerator()
         
-        # 비디오 생성기 선택
-        klingai_key = os.environ.get('KLINGAI_API_KEY')
-        if not klingai_key or use_placeholder:
-            logger.info("플레이스홀더 비디오 생성기를 사용합니다.")
-            self.video_generator = PlaceholderVideoGenerator()
+        # 통합 비디오 생성기 사용
+        logger.info("🎬 통합 비디오 생성기 초기화 중...")
+        
+        # 비디오 생성기 타입 설정
+        generator_type_env = os.environ.get('VIDEO_GENERATOR_TYPE', 'auto').lower()
+        if generator_type_env == 'api':
+            generator_type = VideoGeneratorType.KLINGAI_API
+        elif generator_type_env == 'web':
+            generator_type = VideoGeneratorType.KLINGAI_WEB
+        elif generator_type_env == 'placeholder':
+            generator_type = VideoGeneratorType.PLACEHOLDER
         else:
-            logger.info("KlingAI 비디오 생성기를 사용합니다.")
-            self.video_generator = KlingAIVideoGenerator()
+            generator_type = VideoGeneratorType.AUTO
+        
+        self.video_generator = UnifiedVideoGenerator(generator_type)
+        
+        # 상태 보고서 출력
+        status_report = self.video_generator.get_status_report()
+        logger.info(f"✅ 통합 비디오 생성기 초기화 완료")
+        logger.info(f"   기본 생성기: {status_report['default_generator']}")
+        logger.info(f"   사용 가능한 생성기: {status_report['available_generators']}개")
+        
+        for gen_name, gen_info in status_report['generators'].items():
+            logger.info(f"   - {gen_info['name']} ({gen_name})")
             
         self.video_editor = VideoEditor()
         
